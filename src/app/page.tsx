@@ -132,6 +132,7 @@ const TRANSLATIONS = {
     rielTotal: 'riel total',
     transportTip: 'Live dual-currency tracking with active conversion rate.',
     home: 'Home',
+    chatbot: 'Chatbot',
     approvals: 'Approvals',
     reports: 'Reports',
     archive: 'Archive',
@@ -162,6 +163,7 @@ const TRANSLATIONS = {
     rielTotal: 'រៀលសរុប',
     transportTip: 'តាមដានការចំណាយជាក់ស្តែង និងប្តូរប្រាក់តាមអត្រាកំណត់។',
     home: 'ទំព័រដើម',
+    chatbot: 'ឆាតបូត AI',
     approvals: 'ការអនុម័ត',
     reports: 'របាយការណ៍',
     archive: 'បណ្ណសារ',
@@ -199,7 +201,7 @@ interface CurrentUser {
 }
 
 export default function KomnottraApp() {
-  const [activeScreen, setActiveScreen] = useState<'home' | 'scan' | 'review' | 'batch-review' | 'approvals' | 'reports' | 'archive' | 'settings' | 'team' | 'analytics' | 'income'>('home');
+  const [activeScreen, setActiveScreen] = useState<'home' | 'scan' | 'review' | 'batch-review' | 'approvals' | 'reports' | 'archive' | 'settings' | 'team' | 'analytics' | 'income' | 'chatbot'>('home');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
   const t = TRANSLATIONS.en;
 
@@ -409,6 +411,94 @@ export default function KomnottraApp() {
       return user.email.slice(0, 2).toUpperCase();
     }
     return 'U';
+  };
+
+  // AI CFO Chatbot State & Handlers
+  interface ChatMessageItem {
+    id: string;
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp: string;
+  }
+
+  const [chatMessages, setChatMessages] = useState<ChatMessageItem[]>([
+    {
+      id: 'welcome-cfo',
+      role: 'assistant',
+      content: `Hello! 👋 I am your **Komnottra AI CFO & Financial Advisor**.\n\nI can analyze your approved receipts, track client incomes, calculate your monthly burn rate, forecast cash runway, and break down spending by category or department.\n\nAsk me anything or tap one of the suggested prompts above!`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    },
+  ]);
+  const [chatInput, setChatInput] = useState('');
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const chatMessagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (activeScreen === 'chatbot') {
+      chatMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, activeScreen]);
+
+  const handleSendChatMessage = async (presetText?: string) => {
+    const textToSend = (presetText || chatInput).trim();
+    if (!textToSend || isChatLoading) return;
+
+    const userMsg: ChatMessageItem = {
+      id: 'user-' + Date.now(),
+      role: 'user',
+      content: textToSend,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    const updatedMessages = [...chatMessages, userMsg];
+    setChatMessages(updatedMessages);
+    if (!presetText) setChatInput('');
+    setIsChatLoading(true);
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: textToSend,
+          history: updatedMessages.slice(1, -1).map((m) => ({ role: m.role, content: m.content })),
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.reply) {
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            id: 'ai-' + Date.now(),
+            role: 'assistant',
+            content: data.reply,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          },
+        ]);
+      } else {
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            id: 'err-' + Date.now(),
+            role: 'assistant',
+            content: `⚠️ ${data.error || 'Unable to connect to AI CFO at this time.'}`,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          },
+        ]);
+      }
+    } catch (err: any) {
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: 'err-' + Date.now(),
+          role: 'assistant',
+          content: `⚠️ Network error: ${err.message || 'Could not communicate with server.'}`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
+      ]);
+    } finally {
+      setIsChatLoading(false);
+    }
   };
 
   const fetchLiveReceipts = async () => {
@@ -2554,6 +2644,24 @@ export default function KomnottraApp() {
                 <div className={styles.navItemLeft}>
                   <BarChart3 size={16} /> Analytics &amp; Runway
                 </div>
+              </div>
+              <div
+                className={`${styles.navMenuItem} ${activeScreen === 'chatbot' ? styles.navMenuItemActive : ''}`}
+                onClick={() => {
+                  if (currentUser?.role === 'OWNER') {
+                    setActiveScreen('chatbot');
+                  } else {
+                    alert('The AI CFO Chatbot is reserved exclusively for Company Owners and Finance Leads.');
+                  }
+                  setIsMobileSidebarOpen(false);
+                }}
+              >
+                <div className={styles.navItemLeft}>
+                  <Bot size={16} /> {t.chatbot}
+                </div>
+                <span style={{ fontSize: '10px', background: '#E8BA5A', color: '#7A222B', padding: '1px 6px', borderRadius: '6px', fontWeight: 700 }}>
+                  AI
+                </span>
               </div>
               <div
                 className={`${styles.navMenuItem} ${activeScreen === 'approvals' ? styles.navMenuItemActive : ''}`}
@@ -5466,6 +5574,202 @@ export default function KomnottraApp() {
                       </div>
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* SCREEN: AI CFO CHATBOT */}
+            {activeScreen === 'chatbot' && (
+              <div className={styles.chatbotContainer}>
+                {/* Header */}
+                <div className={styles.chatbotHeader}>
+                  <div>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#8C8075', letterSpacing: '0.08em', marginBottom: '4px' }}>
+                      CONVERSATIONAL INTELLIGENCE · OWNER ACCESS
+                    </div>
+                    <h2 className={styles.chatbotHeaderTitle}>
+                      <Bot size={26} color="#7A222B" /> AI CFO Business Chatbot
+                    </h2>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span className={styles.chatbotBadgeLive}>
+                      <span className={styles.chatbotBadgeLiveDot} />
+                      Live Financial Ledger
+                    </span>
+                    <button
+                      type="button"
+                      className={styles.btnScanMore}
+                      onClick={() => {
+                        setChatMessages([
+                          {
+                            id: 'welcome-cfo-' + Date.now(),
+                            role: 'assistant',
+                            content: `Hello! 👋 I am your **Komnottra AI CFO & Financial Advisor**.\n\nI can analyze your approved receipts, track client incomes, calculate your monthly burn rate, forecast cash runway, and break down spending by category or department.\n\nAsk me anything or tap one of the suggested prompts above!`,
+                            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                          },
+                        ]);
+                      }}
+                      style={{ fontSize: '12px', padding: '6px 12px' }}
+                      title="Reset chat history"
+                    >
+                      <RefreshCw size={13} /> Clear Chat
+                    </button>
+                  </div>
+                </div>
+
+                {/* Quick Suggestion Prompt Chips */}
+                <div className={styles.chatbotPromptsBar}>
+                  <button
+                    type="button"
+                    className={styles.chatbotPromptChip}
+                    onClick={() => handleSendChatMessage('What is our monthly burn rate and estimated cash runway?')}
+                    disabled={isChatLoading}
+                  >
+                    <Clock size={13} color="#7A222B" /> Burn rate &amp; cash runway
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.chatbotPromptChip}
+                    onClick={() => handleSendChatMessage('Summarize our approved expenses vs. income this month.')}
+                    disabled={isChatLoading}
+                  >
+                    <TrendingUp size={13} color="#10B981" /> Expenses vs. Income summary
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.chatbotPromptChip}
+                    onClick={() => handleSendChatMessage('What are our highest spending categories and departments?')}
+                    disabled={isChatLoading}
+                  >
+                    <Tag size={13} color="#D97706" /> Top spending categories
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.chatbotPromptChip}
+                    onClick={() => handleSendChatMessage('How many items are currently waiting in the Approvals queue?')}
+                    disabled={isChatLoading}
+                  >
+                    <CheckSquare size={13} color="#2563EB" /> Approvals queue status
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.chatbotPromptChip}
+                    onClick={() => handleSendChatMessage('តើចំណូល និងការចំណាយសរុបរបស់ក្រុមហ៊ុនមានចំនួនប៉ុន្មាន?')}
+                    disabled={isChatLoading}
+                  >
+                    🇰🇭 សង្ខេបចំណូលចំណាយ (Khmer)
+                  </button>
+                </div>
+
+                {/* Chat Messages Log */}
+                <div className={styles.chatbotMessagesBox}>
+                  {chatMessages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`${styles.chatMsgRow} ${
+                        msg.role === 'user' ? styles.chatMsgRowUser : styles.chatMsgRowAssistant
+                      }`}
+                    >
+                      <div
+                        className={
+                          msg.role === 'user' ? styles.chatBubbleUser : styles.chatBubbleAssistant
+                        }
+                      >
+                        <div
+                          className={`${styles.chatBubbleMeta} ${
+                            msg.role === 'user' ? styles.chatBubbleMetaUser : ''
+                          }`}
+                        >
+                          <div className={styles.chatSenderInfo}>
+                            {msg.role === 'assistant' ? (
+                              <>
+                                <span className={styles.chatSenderAvatarAi}>
+                                  <Sparkles size={14} />
+                                </span>
+                                <span>Komnottra AI CFO</span>
+                              </>
+                            ) : (
+                              <>
+                                <span className={styles.chatSenderAvatarUser}>
+                                  <User size={14} />
+                                </span>
+                                <span>You (Owner)</span>
+                              </>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span className={styles.chatTimestamp}>{msg.timestamp}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(msg.content);
+                                alert('Message copied to clipboard!');
+                              }}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                color: msg.role === 'user' ? 'rgba(255,255,255,0.8)' : '#8C8075',
+                                padding: '2px',
+                                display: 'flex',
+                                alignItems: 'center',
+                              }}
+                              title="Copy message"
+                            >
+                              <Copy size={12} />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className={styles.chatBubbleText}>
+                          {msg.content}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Loading indicator */}
+                  {isChatLoading && (
+                    <div className={styles.chatLoadingBubble}>
+                      <Loader2 size={16} className={styles.spinner} />
+                      <span>AI CFO is analyzing your ledger...</span>
+                    </div>
+                  )}
+
+                  <div ref={chatMessagesEndRef} />
+                </div>
+
+                {/* Input Field */}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSendChatMessage();
+                  }}
+                  className={styles.chatbotInputCard}
+                >
+                  <Bot size={20} color="#7A222B" style={{ opacity: 0.8 }} />
+                  <input
+                    type="text"
+                    className={styles.chatbotTextInput}
+                    placeholder="Ask about cashflow, runway, burn rate, approved expenses, or income..."
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    disabled={isChatLoading}
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    className={styles.chatbotSendBtn}
+                    disabled={!chatInput.trim() || isChatLoading}
+                    title="Send message"
+                  >
+                    <Send size={18} />
+                  </button>
+                </form>
+
+                <div className={styles.chatbotDisclaimer}>
+                  🔒 Private business conversation. Insights are calculated strictly from your workspace's approved transactions.
                 </div>
               </div>
             )}
