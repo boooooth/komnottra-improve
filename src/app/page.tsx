@@ -1628,36 +1628,57 @@ export default function KomnottraApp() {
       <div className={styles.onboardingContainer}>
         <div className={styles.onboardingShell}>
           <div className={styles.onboardingHeader}>
-            <div className={styles.logoBox} style={{ width: '48px', height: '48px' }}>
+            <div className={styles.onboardingLogoBox}>
               <ReceiptIcon size={26} strokeWidth={2.2} />
             </div>
             <div className={styles.onboardingWelcome}>
+              <span className={styles.onboardingWelcomeDot} />
               <span>Welcome, {currentUser.name}!</span>
             </div>
             <h1 className={styles.onboardingTitle}>Setup Your Workspace</h1>
+            <p className={styles.onboardingSubtitle}>
+              Create a new workspace for your organization or join an existing company team.
+            </p>
           </div>
 
           {creationStep === 0 && (
             <div className={styles.onboardingGrid}>
               {/* Option 1: Create New Workspace */}
               <div className={styles.onboardingCard}>
-                <div className={styles.onboardingCardIcon}>
-                  <Building2 size={24} color="#7A222B" />
-                </div>
-                <div>
-                  <div className={styles.onboardingCardTitle}>Create New Workspace</div>
-                  <div className={styles.onboardingCardDesc}>
-                    Start an organization workspace for your company.
+                <div className={styles.onboardingCardTop}>
+                  <div className={styles.onboardingCardIconCreate}>
+                    <Building2 size={24} />
+                  </div>
+                  <div>
+                    <div className={styles.onboardingCardTitle}>Create New Workspace</div>
+                    <div className={styles.onboardingCardDesc}>
+                      Start a clean company workspace with automated dual-currency accounting.
+                    </div>
+                  </div>
+
+                  <div className={styles.onboardingFeaturesList}>
+                    <div className={styles.onboardingFeatureItem}>
+                      <Check size={14} className={styles.onboardingFeatureIcon} />
+                      <span>Dual-currency USD & KHR ledger</span>
+                    </div>
+                    <div className={styles.onboardingFeatureItem}>
+                      <Check size={14} className={styles.onboardingFeatureIcon} />
+                      <span>Cambodian GDT tax & TIN compliance audit</span>
+                    </div>
+                    <div className={styles.onboardingFeatureItem}>
+                      <Check size={14} className={styles.onboardingFeatureIcon} />
+                      <span>Customizable chart of accounts & departments</span>
+                    </div>
                   </div>
                 </div>
 
-                <form onSubmit={handleProceedToWizard} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '8px' }}>
+                <form onSubmit={handleProceedToWizard} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '4px' }}>
                   <div>
                     <label className={styles.settingsLabel}>Company / Workspace Name</label>
                     <input
                       type="text"
                       required
-                      className={styles.warmInput}
+                      className={styles.onboardingInput}
                       placeholder="e.g. Phnom Penh Trading Co., Ltd."
                       value={newWorkspaceName}
                       onChange={(e) => setNewWorkspaceName(e.target.value)}
@@ -1665,16 +1686,9 @@ export default function KomnottraApp() {
                     />
                   </div>
 
-                  <div style={{ flex: 1, minHeight: '44px' }}>
-                    <span style={{ fontSize: '12px', color: '#8C8075' }}>
-                      Next, you will configure your primary reporting currency, exchange rate, and team departments in a quick 2-step setup wizard.
-                    </span>
-                  </div>
-
                   <button
                     type="submit"
-                    className={styles.btnApproveReport}
-                    style={{ width: '100%', marginTop: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                    className={styles.onboardingBtnPrimary}
                   >
                     <span>Continue to Setup</span>
                     <ArrowRight size={16} />
@@ -1684,39 +1698,49 @@ export default function KomnottraApp() {
 
               {/* Option 2: Join with Invite Code */}
               <div className={styles.onboardingCard}>
-                <div className={styles.onboardingCardIcon}>
-                  <LinkIcon size={24} color="#7A222B" />
-                </div>
-                <div>
-                  <div className={styles.onboardingCardTitle}>Join Existing Workspace</div>
-                  <div className={styles.onboardingCardDesc}>
-                    Received a team invite code (e.g. <code>KOM-1234</code>) from your finance manager or company owner? Enter it below to join.
+                <div className={styles.onboardingCardTop}>
+                  <div className={styles.onboardingCardIconJoin}>
+                    <LinkIcon size={24} />
+                  </div>
+                  <div>
+                    <div className={styles.onboardingCardTitle}>Join Existing Workspace</div>
+                    <div className={styles.onboardingCardDesc}>
+                      Received a team invite code (e.g. <code>KOM-1234</code>) from your company owner?
+                    </div>
+                  </div>
+
+                  <div className={styles.onboardingFeaturesList}>
+                    <div className={styles.onboardingFeatureItem}>
+                      <Check size={14} className={styles.onboardingFeatureIcon} />
+                      <span>Instant access to team receipt scanner</span>
+                    </div>
+                    <div className={styles.onboardingFeatureItem}>
+                      <Check size={14} className={styles.onboardingFeatureIcon} />
+                      <span>Auto-sync submitted claims to company ledger</span>
+                    </div>
+                    <div className={styles.onboardingFeatureItem}>
+                      <Check size={14} className={styles.onboardingFeatureIcon} />
+                      <span>Real-time claim reimbursement status tracking</span>
+                    </div>
                   </div>
                 </div>
 
-                <form onSubmit={handleJoinWorkspace} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '8px' }}>
+                <form onSubmit={handleJoinWorkspace} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '4px' }}>
                   <div>
                     <label className={styles.settingsLabel}>Workspace Invite Code</label>
                     <input
                       type="text"
                       required
-                      className={styles.warmInput}
+                      className={styles.onboardingInput}
                       placeholder="e.g. KOM-1234"
                       value={joinInviteCode}
                       onChange={(e) => setJoinInviteCode(e.target.value.toUpperCase())}
                     />
                   </div>
 
-                  <div style={{ flex: 1, minHeight: '44px' }}>
-                    <span style={{ fontSize: '12px', color: '#8C8075' }}>
-                      Once joined, you can scan receipts on mobile/desktop and submit claims directly to your team's ledger.
-                    </span>
-                  </div>
-
                   <button
                     type="submit"
-                    className={styles.btnOutlineWarm}
-                    style={{ width: '100%', padding: '12px', borderRadius: '12px', fontWeight: 700, borderColor: '#7A222B', color: '#7A222B', cursor: 'pointer', marginTop: '6px' }}
+                    className={styles.onboardingBtnSecondary}
                     disabled={isCreatingWs}
                   >
                     {isCreatingWs ? 'Joining...' : 'Join Company Team'}
@@ -1986,13 +2010,14 @@ export default function KomnottraApp() {
             </div>
           )}
 
-          <div style={{ textAlign: 'center', marginTop: '8px' }}>
+          <div style={{ textAlign: 'center', marginTop: '12px' }}>
             <button
               type="button"
               onClick={handleLogout}
-              style={{ background: 'none', border: 'none', color: '#8C8075', fontSize: '13px', cursor: 'pointer', textDecoration: 'underline' }}
+              className={styles.onboardingSignOutBtn}
             >
-              Sign out ({currentUser.email})
+              <LogOut size={14} />
+              <span>Sign out ({currentUser.email})</span>
             </button>
           </div>
         </div>
