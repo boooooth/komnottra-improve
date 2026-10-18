@@ -70,7 +70,23 @@ services:
     networks:
       - komnottra-net
 
-  # 4. Cloudflare Tunnel Service
+  # 4. Prisma Studio Database GUI (Visual Database Browser)
+  studio:
+    image: komnottra-web
+    container_name: komnottra-studio
+    restart: unless-stopped
+    entrypoint: ["npx", "prisma", "studio", "--port", "5555", "--hostname", "0.0.0.0", "--browser", "none"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-komnottra}?schema=public
+    ports:
+      - "127.0.0.1:5555:5555"
+    networks:
+      - komnottra-net
+
+  # 5. Cloudflare Tunnel Service
   tunnel:
     image: cloudflare/cloudflared:latest
     container_name: komnottra-tunnel
