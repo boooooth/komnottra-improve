@@ -5289,10 +5289,10 @@ export default function KomnottraApp() {
                       <TrendingUp size={16} color="#10B981" /> Net Cashflow
                     </div>
                     <div className={styles.analyticsCardValue} style={{ color: (analyticsData?.metrics?.netCashflowUsd || 0) >= 0 ? '#10B981' : '#EF4444' }}>
-                      {(analyticsData?.metrics?.netCashflowUsd || 0) >= 0 ? '+' : ''}${Math.round(analyticsData?.metrics?.netCashflowUsd || 0).toLocaleString()}
+                      {(analyticsData?.metrics?.netCashflowUsd || 0) >= 0 ? '+' : '-'}${Math.abs(Math.round(analyticsData?.metrics?.netCashflowUsd || 0)).toLocaleString()}
                     </div>
                     <div className={styles.analyticsCardSub} style={{ color: '#8C8075' }}>
-                      <span>៛{Math.round(analyticsData?.metrics?.netCashflowKhr || 0).toLocaleString()} Riel total</span>
+                      <span>{(analyticsData?.metrics?.netCashflowKhr || 0) >= 0 ? '+' : '-'}៛{Math.abs(Math.round(analyticsData?.metrics?.netCashflowKhr || 0)).toLocaleString()} Riel total</span>
                     </div>
                   </div>
 
