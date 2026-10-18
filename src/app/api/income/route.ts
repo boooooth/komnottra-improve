@@ -98,9 +98,12 @@ export async function POST(req: NextRequest) {
       totalBaseEquiv = isUsd ? numTotal * activeRate : numTotal;
     }
 
+    const submitterName = session ? `${session.name || 'Staff'} (${session.email})` : 'Web User';
+
     const newIncome = await prisma.income.create({
       data: {
         workspaceId: session.workspaceId,
+        submittedBy: body.submittedBy || submitterName,
         date: date || new Date().toISOString().split('T')[0],
         invoiceNo: invoiceNo || null,
         clientName,

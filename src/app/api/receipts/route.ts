@@ -262,10 +262,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const submitterName = session ? `${session.name || 'Staff'} (${session.email})` : 'Web User';
+
     const newReceipt = await prisma.receipt.create({
       data: {
         workspaceId: workspace.id,
         claimantId: claimantId!,
+        submittedBy: body.submittedBy || submitterName,
         date: body.date || new Date().toLocaleDateString('en-GB'), // e.g. 30/09/2026
         payee: body.payee?.trim() || 'Unknown Vendor',
         vendorTin: body.vendorTin || '—',
@@ -362,6 +365,7 @@ export async function PATCH(req: NextRequest) {
     if (updateFields.expenseCode !== undefined) dataToUpdate.expenseCode = updateFields.expenseCode;
     if (updateFields.paymentMethod !== undefined) dataToUpdate.paymentMethod = updateFields.paymentMethod;
     if (updateFields.imageUrl !== undefined) dataToUpdate.imageUrl = updateFields.imageUrl;
+    if (updateFields.submittedBy !== undefined) dataToUpdate.submittedBy = updateFields.submittedBy;
 
     if (updateFields.total !== undefined || updateFields.currency !== undefined) {
       const existing = await prisma.receipt.findUnique({ where: { id }, include: { workspace: true } });

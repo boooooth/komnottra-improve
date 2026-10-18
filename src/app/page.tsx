@@ -105,6 +105,7 @@ interface ReceiptData {
   approvedById?: string | null;
   imageUrl: string;
   rawExtractedJson?: string | null;
+  submittedBy?: string | null;
   claimant?: { name: string; email: string };
   approvedBy?: { name: string; email: string };
 }
@@ -414,7 +415,8 @@ export default function KomnottraApp() {
           .map((r: ReceiptData) => ({
             id: r.id,
             vendor: r.payee,
-            claimant: r.claimant?.name || r.claimant?.email || 'Staff member',
+            claimant: r.submittedBy || r.claimant?.name || r.claimant?.email || 'Staff member',
+            submittedBy: r.submittedBy || r.claimant?.name || r.claimant?.email || 'Staff member',
             date: r.date,
             category: r.expenseCode || 'General',
             total: r.total,
@@ -423,6 +425,7 @@ export default function KomnottraApp() {
             flag: r.vendorTin === '—' ? 'Missing TIN' : 'Needs review',
             note: r.description || 'Submitted expense claim',
             imageUrl: r.imageUrl,
+            rawReceipt: r,
           }));
         setApprovalQueue(pending);
       }
@@ -3722,7 +3725,7 @@ export default function KomnottraApp() {
                                 </div>
                               </div>
                               <div style={{ fontSize: '12px', color: '#8C8075' }}>
-                                {item.claimant} · {item.date} · {item.category}
+                                {item.submittedBy ? `👤 ${item.submittedBy}` : item.claimant} · {item.date} · {item.category}
                               </div>
                               <div style={{ fontSize: '11px', color: '#D97706', fontWeight: 700, marginTop: '4px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                                 <AlertTriangle size={12} /> {item.flag}
@@ -3761,7 +3764,12 @@ export default function KomnottraApp() {
                           )}
                           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px' }}>
                             <div style={{ fontSize: '15px', fontWeight: 800, color: '#1F1916' }}>{selectedAuditItem.vendor}</div>
-                            <div><strong>Claimant:</strong> {selectedAuditItem.claimant}</div>
+                            <div>
+                              <strong>Submitted By:</strong>{' '}
+                              <span style={{ color: '#7A222B', fontWeight: 700 }}>
+                                {selectedAuditItem.submittedBy || selectedAuditItem.claimant}
+                              </span>
+                            </div>
                             <div><strong>Date:</strong> {selectedAuditItem.date} · <strong>Category:</strong> {selectedAuditItem.category}</div>
                             <div style={{ fontSize: '14px', fontWeight: 800, color: '#7A222B', marginTop: '2px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
                               <span>Total: {selectedAuditItem.currency === 'USD' ? `$${selectedAuditItem.total} USD` : `${selectedAuditItem.total.toLocaleString()} ៛ KHR`}</span>
@@ -3773,17 +3781,46 @@ export default function KomnottraApp() {
                         </div>
 
                         {currentUser?.role === 'OWNER' ? (
-                          <div style={{ display: 'flex', gap: '10px' }}>
+                          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                             <button
+                              type="button"
                               className={styles.btnRetake}
-                              style={{ flex: 1 }}
+                              style={{ flex: 1, minWidth: '100px' }}
                               onClick={() => handleQueueDecision(selectedAuditItem.id, 'reject')}
                             >
                               Reject Claim
                             </button>
                             <button
+                              type="button"
+                              style={{
+                                flex: 1,
+                                minWidth: '120px',
+                                background: '#FFFFFF',
+                                border: '1px solid #D6CBC1',
+                                borderRadius: '10px',
+                                padding: '10px 14px',
+                                fontSize: '13px',
+                                fontWeight: 700,
+                                color: '#4A3E36',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px',
+                                cursor: 'pointer',
+                              }}
+                              onClick={() => {
+                                const full = receipts.find((r) => r.id === selectedAuditItem.id) || selectedAuditItem.rawReceipt;
+                                if (full) {
+                                  handleOpenEditReceipt(full);
+                                }
+                              }}
+                            >
+                              <Edit3 size={14} /> Edit & Review
+                            </button>
+                            <button
+                              type="button"
                               className={styles.btnApproveReport}
-                              style={{ flex: 1 }}
+                              style={{ flex: 1, minWidth: '120px' }}
                               onClick={() => handleQueueDecision(selectedAuditItem.id, 'approve')}
                             >
                               Approve Claim
@@ -4304,7 +4341,7 @@ export default function KomnottraApp() {
                           onChange={(e) => setWorkspaceSettings({ ...workspaceSettings, telegramChatId: e.target.value })}
                         />
                         <span style={{ fontSize: '11px', color: '#8C8075' }}>
-                          Your Telegram User ID or Group ID. Or simply send <code>/start {workspaceSettings.inviteCode || 'YOUR_CODE'}</code> to your bot to auto-pair!
+                          Your Telegram User ID or Group ID. (Tip: Send <code>/start</code> to your bot in Telegram to get your Chat ID).
                         </span>
                       </div>
                     </div>
@@ -4320,15 +4357,6 @@ export default function KomnottraApp() {
                         {isTestingTelegram ? <Loader2 size={14} className={styles.spinner} /> : <Zap size={14} />}
                         {isTestingTelegram ? 'Testing Connection...' : 'Test Connection & Ping Bot'}
                       </button>
-
-                      {workspaceSettings.inviteCode && (
-                        <div style={{ fontSize: '12px', color: '#5C5248', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span>Pair command:</span>
-                          <code style={{ background: '#EFE8DE', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
-                            /start {workspaceSettings.inviteCode}
-                          </code>
-                        </div>
-                      )}
                     </div>
 
                     {telegramTestResult && (
@@ -5586,7 +5614,7 @@ export default function KomnottraApp() {
                     {isDeletingReceipt ? 'Deleting...' : 'Delete Receipt'}
                   </button>
 
-                  <div style={{ display: 'flex', gap: '10px' }}>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <button
                       type="button"
                       className={styles.btnSecondarySm}
@@ -5598,7 +5626,7 @@ export default function KomnottraApp() {
                     <button
                       type="submit"
                       className={styles.btnApproveReport}
-                      style={{ width: 'auto', padding: '10px 22px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                      style={{ width: 'auto', padding: '10px 18px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                       disabled={isSavingEdit || isDeletingReceipt}
                     >
                       {isSavingEdit ? (
@@ -5607,10 +5635,36 @@ export default function KomnottraApp() {
                         </>
                       ) : (
                         <>
-                          <Save size={15} /> Save Corrections
+                          <Save size={15} /> Save Changes
                         </>
                       )}
                     </button>
+                    {editingReceipt.status === 'PENDING' && currentUser?.role === 'OWNER' && (
+                      <button
+                        type="button"
+                        style={{
+                          background: '#15803D',
+                          borderColor: '#15803D',
+                          color: '#FFF',
+                          borderRadius: '10px',
+                          border: 'none',
+                          padding: '10px 18px',
+                          fontSize: '13px',
+                          fontWeight: 700,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          cursor: 'pointer',
+                        }}
+                        onClick={async (e) => {
+                          await handleSaveEditReceipt(e);
+                          await handleQueueDecision(editingReceipt.id, 'approve');
+                        }}
+                        disabled={isSavingEdit || isDeletingReceipt}
+                      >
+                        <CheckCheck size={15} /> Save & Approve
+                      </button>
+                    )}
                   </div>
                 </div>
               </form>

@@ -26,6 +26,109 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Handle Telegram Inline Keyboard button clicks (callback_query)
+    if (update.callback_query) {
+      const cq = update.callback_query;
+      const callbackData = cq.data || '';
+      const cqChatId = String(cq.message?.chat?.id || cq.from?.id);
+      const messageId = cq.message?.message_id;
+
+      const ws = await prisma.workspace.findFirst({
+        where: {
+          OR: [
+            { telegramChatId: cqChatId },
+            { telegramChatId: { contains: cqChatId } },
+          ],
+        },
+      });
+
+      const token = ws?.telegramBotToken || process.env.TELEGRAM_BOT_TOKEN;
+
+      // Stop button loading spinner
+      if (token && cq.id) {
+        fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ callback_query_id: cq.id }),
+        }).catch(() => {});
+      }
+
+      // Convert from Expense to Income
+      if (callbackData.startsWith('type_inc:') && ws) {
+        const receiptId = callbackData.replace('type_inc:', '');
+        const r = await prisma.receipt.findUnique({ where: { id: receiptId } });
+        if (r) {
+          await prisma.income.create({
+            data: {
+              workspaceId: ws.id,
+              date: r.date,
+              invoiceNo: r.receiptNo,
+              clientName: r.payee,
+              clientTin: r.vendorTin !== '—' ? r.vendorTin : null,
+              description: r.description,
+              category: 'Client Services',
+              paymentMethod: r.paymentMethod || 'Telegram Upload',
+              currency: r.currency,
+              rate: r.rate,
+              amountExclVat: r.amountExclVat,
+              vat: r.vat,
+              total: r.total,
+              totalBaseEquiv: r.totalBaseEquiv,
+              status: 'RECEIVED',
+              submittedBy: r.submittedBy,
+            },
+          });
+          await prisma.receipt.delete({ where: { id: receiptId } });
+
+          if (token && messageId) {
+            await fetch(`https://api.telegram.org/bot${token}/editMessageText`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: cqChatId,
+                message_id: messageId,
+                parse_mode: 'HTML',
+                text: `💵 <b>Recorded as Company Inflow / Income!</b>\n\n` +
+                  `• <b>Client/Source:</b> ${r.payee}\n` +
+                  `• <b>Amount:</b> ${r.total} ${r.currency}\n` +
+                  `• <b>Date:</b> ${r.date}\n` +
+                  `• <b>Submitted By:</b> ${r.submittedBy || 'Telegram User'}\n\n` +
+                  `<i>Successfully moved to ${ws.name} Incomes & Inflows.</i>`,
+              }),
+            });
+          }
+        }
+        return NextResponse.json({ ok: true });
+      }
+
+      // Keep as Expense (Pending Review)
+      if (callbackData.startsWith('type_exp:') && ws) {
+        const receiptId = callbackData.replace('type_exp:', '');
+        const r = await prisma.receipt.findUnique({ where: { id: receiptId } });
+        if (r && token && messageId) {
+          await fetch(`https://api.telegram.org/bot${token}/editMessageText`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: cqChatId,
+              message_id: messageId,
+              parse_mode: 'HTML',
+              text: `⏳ <b>Recorded as Company Expense (Pending Review)!</b>\n\n` +
+                `• <b>Merchant:</b> ${r.payee}\n` +
+                `• <b>Amount:</b> ${r.total} ${r.currency}\n` +
+                `• <b>Date:</b> ${r.date}\n` +
+                `• <b>Category:</b> ${r.expenseCode}\n` +
+                `• <b>Submitted By:</b> ${r.submittedBy || 'Telegram User'}\n\n` +
+                `<i>Sent to Workspace Approvals for owner review.</i>`,
+            }),
+          });
+        }
+        return NextResponse.json({ ok: true });
+      }
+
+      return NextResponse.json({ ok: true });
+    }
+
     const message = update.message || update.edited_message;
     if (!message || !message.chat) {
       return NextResponse.json({ ok: true });
@@ -33,6 +136,12 @@ export async function POST(req: NextRequest) {
 
     const chatId = String(message.chat.id);
     const text = message.text?.trim() || message.caption?.trim() || '';
+
+    // Sender Telegram display name
+    const fromUser = message.from;
+    const telegramSenderName = fromUser
+      ? [fromUser.first_name, fromUser.last_name].filter(Boolean).join(' ') + (fromUser.username ? ` (@${fromUser.username})` : '')
+      : 'Telegram User';
 
     // 1. Try to find workspace by telegramChatId (single ID or list of IDs)
     let workspace = await prisma.workspace.findFirst({
@@ -44,18 +153,18 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // 2. Handle /start command (supports binding via /start <inviteCode>)
-    if (text.startsWith('/start')) {
+    // 2. Handle /start and /myid commands
+    if (text.startsWith('/start') || text === '/myid') {
       const parts = text.split(' ');
-      const inviteCode = parts[1]?.trim();
+      const possibleCode = parts[1]?.trim();
 
-      if (inviteCode) {
+      // Legacy fallback: if someone still passed an inviteCode
+      if (possibleCode) {
         const found = await prisma.workspace.findUnique({
-          where: { inviteCode },
+          where: { inviteCode: possibleCode },
         });
 
         if (found) {
-          // Append chat ID if not already present
           const existingIds = (found.telegramChatId || '')
             .split(',')
             .map((s: string) => s.trim())
@@ -71,42 +180,48 @@ export async function POST(req: NextRequest) {
               telegramBotActive: true,
             },
           });
-
-          const token = workspace.telegramBotToken || process.env.TELEGRAM_BOT_TOKEN;
-          if (token) {
-            await sendTelegramMessage(
-              token,
-              chatId,
-              `🎉 <b>Connected to ${workspace.name}!</b>\n\n` +
-                `This Telegram chat is now officially paired with your <b>Komnottra</b> workspace ledger.\n\n` +
-                `<b>What you can do:</b>\n` +
-                `• 💬 Ask financial questions (e.g. <i>"What's our spend this week?"</i>, <i>"Show top categories"</i>, <i>"Predict next month burn"</i>)\n` +
-                `• 📸 Send or forward receipt photos here to auto-scan into your ledger\n` +
-                `• 🚨 Receive instant alerts for high-value claims, new income, and morning digests\n\n` +
-                `Type /help anytime to see available commands.`
-            );
-          }
-          return NextResponse.json({ ok: true });
         }
       }
 
-      if (!workspace) {
-        const token = process.env.TELEGRAM_BOT_TOKEN;
-        if (token) {
+      const token = workspace?.telegramBotToken || process.env.TELEGRAM_BOT_TOKEN;
+      if (token) {
+        if (workspace) {
+          await sendTelegramMessage(
+            token,
+            chatId,
+            `🎉 <b>Connected to ${workspace.name}!</b>\n\n` +
+              `Your Telegram Chat ID: <code>${chatId}</code>\n\n` +
+              `<b>Available actions:</b>\n` +
+              `• 📸 <b>Send any receipt or bill photo</b> to submit for approval\n` +
+              `• 💬 <b>Ask financial questions</b> (e.g. <i>"What's our burn rate?"</i>, <i>"/summary"</i>, <i>"/runway"</i>)\n` +
+              `• 🚨 Receive real-time alerts for expenses and income\n\n` +
+              `Type /help anytime to see available commands.`
+          );
+        } else {
           await sendTelegramMessage(
             token,
             chatId,
             `👋 <b>Welcome to Komnottra CFO Bot!</b>\n\n` +
-              `To link this bot to your workspace, send:\n` +
-              `<code>/start YOUR_WORKSPACE_INVITE_CODE</code>\n\n` +
-              `<i>You can find your invite code in the Komnottra web dashboard under Settings &rarr; Telegram Integration.</i>`
+              `Your Telegram Chat ID is:\n<code>${chatId}</code>\n\n` +
+              `<i>To connect this bot to your workspace, copy this Chat ID and paste it into your Komnottra Web Dashboard under <b>Settings ➔ Telegram Integration</b>.</i>`
           );
         }
-        return NextResponse.json({ ok: true });
       }
+      return NextResponse.json({ ok: true });
     }
 
     if (!workspace) {
+      const token = process.env.TELEGRAM_BOT_TOKEN;
+      if (token) {
+        await sendTelegramMessage(
+          token,
+          chatId,
+          `👋 <b>Komnottra CFO Bot</b>\n\n` +
+            `This chat is not connected to a workspace yet.\n` +
+            `Your Telegram Chat ID is: <code>${chatId}</code>\n\n` +
+            `<i>Paste this ID in your Komnottra Settings to connect.</i>`
+        );
+      }
       return NextResponse.json({ ok: true });
     }
 
@@ -179,15 +294,17 @@ export async function POST(req: NextRequest) {
               totalBaseEquiv = isUsd ? parsed.total * activeRate : parsed.total;
             }
 
+            // Create record with status PENDING so it goes into Owner Review
             const receipt = await prisma.receipt.create({
               data: {
                 workspaceId: workspace.id,
                 claimantId: claimantUser.id,
+                submittedBy: `Telegram: ${telegramSenderName}`,
                 date: parsed.date,
                 receiptNo: parsed.receiptNo || `TG-${Date.now().toString().slice(-4)}`,
                 payee: parsed.vendor || 'Merchant',
                 vendorTin: parsed.vendorTin || '—',
-                description: parsed.note || 'Telegram uploaded receipt',
+                description: parsed.note || `Telegram receipt by ${telegramSenderName}`,
                 department: parsed.department || 'General',
                 expenseCode: parsed.category || 'General',
                 paymentMethod: 'Telegram Upload',
@@ -197,23 +314,35 @@ export async function POST(req: NextRequest) {
                 vat: parsed.vat,
                 total: parsed.total,
                 totalBaseEquiv,
-                status: 'APPROVED',
+                status: 'PENDING', // Goes to Review Queue!
                 imageUrl,
                 rawExtractedJson: JSON.stringify(parsed),
               },
             });
 
+            // Reply with receipt details and interactive inline buttons for Expense vs Income
             await sendTelegramMessage(
               token,
               chatId,
-              `✅ <b>Receipt Scanned & Logged!</b>\n\n` +
+              `✅ <b>Receipt Scanned & Sent for Review!</b>\n\n` +
                 `• <b>Merchant:</b> ${parsed.vendor}\n` +
                 `• <b>Amount:</b> ${parsed.total} ${parsed.currency}\n` +
                 `• <b>Date:</b> ${parsed.date}\n` +
                 `• <b>Category:</b> ${parsed.category}\n` +
                 `• <b>TIN:</b> ${parsed.vendorTin || '—'}\n` +
-                `• <b>Claim ID:</b> #${receipt.receiptNo}\n\n` +
-                `<i>Auto-synced into ${workspace.name} ledger.</i>`
+                `• <b>Submitted By:</b> ${telegramSenderName}\n` +
+                `• <b>Status:</b> ⏳ <b>Pending Review</b> in Dashboard\n\n` +
+                `<i>Is this a Spending (Expense) or Incoming (Revenue)?</i>`,
+              {
+                replyMarkup: {
+                  inline_keyboard: [
+                    [
+                      { text: '🔴 Expense / Spending', callback_data: `type_exp:${receipt.id}` },
+                      { text: '🟢 Switch to Income / Inflow', callback_data: `type_inc:${receipt.id}` },
+                    ],
+                  ],
+                },
+              }
             );
             return NextResponse.json({ ok: true });
           }

@@ -122,6 +122,7 @@ model Receipt {
   // Image & Audit Metadata
   imageUrl         String
   rawExtractedJson String?    // Stores line items, cashier, address, etc.
+  submittedBy      String?    // Submitter display name e.g. "Telegram: Seyhaboth (@bothhh)" or "Seyhaboth (email)"
 
   createdAt        DateTime   @default(now())
 }
@@ -149,6 +150,7 @@ model Income {
 
   status         String     @default("RECEIVED") // RECEIVED, PENDING, OVERDUE
   reference      String?
+  submittedBy    String?    // Submitter display name
 
   createdAt      DateTime   @default(now())
 }
