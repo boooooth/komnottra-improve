@@ -3985,15 +3985,6 @@ export default function KomnottraApp() {
                       <h2 style={{ fontFamily: 'var(--font-primary)', fontSize: '28px', fontWeight: 800, letterSpacing: '-0.02em', color: '#1F1916', margin: 0 }}>
                         {t.approvals}
                       </h2>
-                      {currentUser?.role === 'OWNER' ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#FEF3C7', color: '#92400E', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 800 }}>
-                          <ShieldCheck size={13} /> OWNER APPROVAL AUTHORITY
-                        </span>
-                      ) : (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#F1F5F9', color: '#475569', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 700 }}>
-                          Staff View
-                        </span>
-                      )}
                     </div>
                     <div style={{ fontSize: '12px', color: '#8C8075', marginTop: '4px' }}>
                       Review expenses &amp; client incomes before they land in official financial statements &amp; analytics
@@ -4566,13 +4557,10 @@ export default function KomnottraApp() {
                 <div style={{ fontSize: '11px', fontWeight: 700, color: '#8C8075', letterSpacing: '0.08em', marginBottom: '4px' }}>
                   {receipts.length} ORIGINAL RECEIPTS
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-                  <h2 style={{ fontFamily: 'var(--font-primary)', fontSize: '28px', fontWeight: 800, letterSpacing: '-0.02em', color: '#1F1916' }}>
+                <div style={{ marginBottom: '24px' }}>
+                  <h2 style={{ fontFamily: 'var(--font-primary)', fontSize: '28px', fontWeight: 800, letterSpacing: '-0.02em', color: '#1F1916', margin: 0 }}>
                     {t.archive}
                   </h2>
-                  <div style={{ background: '#7A222B', color: '#FFF', padding: '6px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <ShieldCheck size={13} /> Original images stored securely on your server
-                  </div>
                 </div>
 
                 <div className={styles.archiveGrid}>
@@ -5413,47 +5401,7 @@ export default function KomnottraApp() {
                       </div>
                     </div>
 
-                    {/* Spend by Category */}
-                    <div className={styles.settingsCard} style={{ margin: 0 }}>
-                      <div className={styles.settingsCardHeader}>
-                        <div>
-                          <div className={styles.settingsCardTitle} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Tag size={18} /> Outflow Distribution by Category
-                          </div>
-                          <div className={styles.settingsCardDesc}>
-                            Breakdown of where capital was deployed.
-                          </div>
-                        </div>
-                      </div>
 
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {analyticsData?.distributions?.expenseByCategory && Object.keys(analyticsData.distributions.expenseByCategory).length > 0 ? (
-                          Object.entries(analyticsData.distributions.expenseByCategory).map(([cat, val]: any, idx) => {
-                            const totalSpend = analyticsData.metrics.totalExpenseUsd || 1;
-                            const pct = Math.round((val.usd / totalSpend) * 100);
-                            const color = CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
-                            return (
-                              <div key={cat} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 600 }}>
-                                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: color }} />
-                                    {cat}
-                                  </span>
-                                  <span>${Math.round(val.usd).toLocaleString()} ({pct}%)</span>
-                                </div>
-                                <div style={{ height: '6px', background: '#F0ECE6', borderRadius: '3px', overflow: 'hidden' }}>
-                                  <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: '3px' }} />
-                                </div>
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <div style={{ textAlign: 'center', padding: '16px', color: '#8C8075', fontSize: '13px' }}>
-                            No expense data logged yet.
-                          </div>
-                        )}
-                      </div>
-                    </div>
                   </div>
 
                   {/* Right Column: AI Anomalies & Telegram Bot Status */}
@@ -5575,14 +5523,7 @@ export default function KomnottraApp() {
                   >
                     <CheckSquare size={13} color="#2563EB" /> Approvals queue status
                   </button>
-                  <button
-                    type="button"
-                    className={styles.chatbotPromptChip}
-                    onClick={() => handleSendChatMessage('តើចំណូល និងការចំណាយសរុបរបស់ក្រុមហ៊ុនមានចំនួនប៉ុន្មាន?')}
-                    disabled={isChatLoading}
-                  >
-                    <FileText size={13} /> សង្ខេបចំណូលចំណាយ (Khmer)
-                  </button>
+
                 </div>
 
                 {/* Chat Messages Log */}
