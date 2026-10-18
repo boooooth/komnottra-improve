@@ -3301,12 +3301,14 @@
 .onboardingCardTop {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
 }
 
 .onboardingCardIcon {
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
   border-radius: 14px;
   background: #FFF8E6;
   border: 1px solid #F3DA95;
@@ -3322,13 +3324,8 @@
   font-weight: 800;
   color: #171412;
   letter-spacing: -0.01em;
-  margin-bottom: 4px;
-}
-
-.onboardingCardDesc {
-  font-size: 13.5px;
-  color: #7D736A;
-  line-height: 1.45;
+  margin: 0;
+  text-align: center;
 }
 
 .onboardingInput {

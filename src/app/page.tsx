@@ -1638,17 +1638,12 @@ export default function KomnottraApp() {
               <div className={styles.onboardingCard}>
                 <div className={styles.onboardingCardTop}>
                   <div className={styles.onboardingCardIcon}>
-                    <Building2 size={24} color="#7A222B" />
+                    <Building2 size={26} color="#7A222B" strokeWidth={2.2} />
                   </div>
-                  <div>
-                    <div className={styles.onboardingCardTitle}>Create New Workspace</div>
-                    <div className={styles.onboardingCardDesc}>
-                      Start an organization workspace for your company.
-                    </div>
-                  </div>
+                  <div className={styles.onboardingCardTitle}>Create New Workspace</div>
                 </div>
 
-                <form onSubmit={handleProceedToWizard} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '8px' }}>
+                <form onSubmit={handleProceedToWizard} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div>
                     <label className={styles.settingsLabel}>Company / Workspace Name</label>
                     <input
@@ -1660,12 +1655,6 @@ export default function KomnottraApp() {
                       onChange={(e) => setNewWorkspaceName(e.target.value)}
                       autoFocus
                     />
-                  </div>
-
-                  <div style={{ flex: 1, minHeight: '44px' }}>
-                    <span style={{ fontSize: '12px', color: '#8C8075', lineHeight: 1.45, display: 'block' }}>
-                      Next, you will configure your primary reporting currency, exchange rate, and team departments in a quick 2-step setup wizard.
-                    </span>
                   </div>
 
                   <button
@@ -1682,17 +1671,12 @@ export default function KomnottraApp() {
               <div className={styles.onboardingCard}>
                 <div className={styles.onboardingCardTop}>
                   <div className={styles.onboardingCardIcon}>
-                    <LinkIcon size={24} color="#7A222B" />
+                    <LinkIcon size={26} color="#7A222B" strokeWidth={2.2} />
                   </div>
-                  <div>
-                    <div className={styles.onboardingCardTitle}>Join Existing Workspace</div>
-                    <div className={styles.onboardingCardDesc}>
-                      Received a team invite code (e.g. <code>KOM-1234</code>) from your finance manager or company owner? Enter it below to join.
-                    </div>
-                  </div>
+                  <div className={styles.onboardingCardTitle}>Join Existing Workspace</div>
                 </div>
 
-                <form onSubmit={handleJoinWorkspace} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '8px' }}>
+                <form onSubmit={handleJoinWorkspace} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div>
                     <label className={styles.settingsLabel}>Workspace Invite Code</label>
                     <input
@@ -1703,12 +1687,6 @@ export default function KomnottraApp() {
                       value={joinInviteCode}
                       onChange={(e) => setJoinInviteCode(e.target.value.toUpperCase())}
                     />
-                  </div>
-
-                  <div style={{ flex: 1, minHeight: '44px' }}>
-                    <span style={{ fontSize: '12px', color: '#8C8075', lineHeight: 1.45, display: 'block' }}>
-                      Once joined, you can scan receipts on mobile/desktop and submit claims directly to your team's ledger.
-                    </span>
                   </div>
 
                   <button
