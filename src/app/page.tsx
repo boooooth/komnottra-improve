@@ -4859,16 +4859,16 @@ export default function KomnottraApp() {
                       </div>
 
                       <div className={styles.settingsFormGroup}>
-                        <label className={styles.settingsLabel}>Default Notification Chat ID</label>
+                        <label className={styles.settingsLabel}>Authorized Telegram Chat ID(s)</label>
                         <input
                           type="text"
                           className={styles.warmInput}
-                          placeholder="e.g. 123456789 or -100123456789"
+                          placeholder="e.g. 123456789, 987654321 or Group ID -100123456789"
                           value={workspaceSettings.telegramChatId || ''}
                           onChange={(e) => setWorkspaceSettings({ ...workspaceSettings, telegramChatId: e.target.value })}
                         />
                         <span style={{ fontSize: '11px', color: '#8C8075' }}>
-                          Your Telegram User ID or Group ID. (Tip: Send <code>/start</code> to your bot in Telegram to get your Chat ID).
+                          Enter one or more Telegram IDs separated by commas (e.g. <code>123456, 789012</code>) or a Group ID (e.g. <code>-100...</code>). Any ID added here will receive real-time alerts and can chat with the bot.
                         </span>
                       </div>
                     </div>

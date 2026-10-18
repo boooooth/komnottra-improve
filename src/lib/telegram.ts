@@ -59,19 +59,31 @@ export async function testTelegramConnection(
 
     const botUsername = meData.result.username;
 
-    // 2. If chatId provided, send test ping
+    // 2. If chatId provided, send test ping (supports comma-separated list of IDs)
     if (chatId) {
       const pingText = `<b>🤖 Komnottra CFO Bot Connected!</b>\n\n` +
         `✅ Successfully linked to workspace: <b>${workspaceName}</b>\n` +
         `📈 You will now receive live alerts for large expenses, income, anomalies, and daily digests.\n\n` +
         `<i>💬 You can message this bot anytime to ask about your company cashflow, spendings, or runway predictions!</i>`;
 
-      const sendRes = await sendTelegramMessage(token, chatId, pingText);
-      if (!sendRes.ok) {
+      const chatIds = chatId.split(',').map((s: string) => s.trim()).filter(Boolean);
+      const errors: string[] = [];
+      let successCount = 0;
+
+      for (const cid of chatIds) {
+        const sendRes = await sendTelegramMessage(token, cid, pingText);
+        if (sendRes.ok) {
+          successCount++;
+        } else {
+          errors.push(`ID ${cid}: ${sendRes.error}`);
+        }
+      }
+
+      if (chatIds.length > 0 && successCount === 0) {
         return {
           success: false,
           botUsername,
-          error: `Bot token is valid (@${botUsername}), but failed to message Chat ID ${chatId}: ${sendRes.error}. (Make sure you clicked Start on the bot first!)`,
+          error: `Bot token is valid (@${botUsername}), but failed to reach chat IDs: ${errors.join(', ')}. (Make sure you clicked /start on the bot first!)`,
         };
       }
     }
