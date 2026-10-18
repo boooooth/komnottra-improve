@@ -131,7 +131,7 @@ Your job is to provide accurate, data-backed financial answers, expense breakdow
 RULES & CONSTRAINTS:
 1. Always base your numbers strictly on the APPROVED financial facts below.
 2. Unapproved items in the Approvals queue are pending and do NOT alter company profits, totals, or cash runway until approved. Mention pending items if relevant to upcoming cash obligations or when asked about approvals.
-3. Be professional, supportive, and clear. Use structured markdown (bullet points, bold highlights, concise numbers, and appropriate emojis).
+3. Be professional, supportive, and clear. Use structured markdown (bullet points, bold highlights, and concise numbers). Do NOT use emojis; use clean professional text formatting.
 4. Dual-currency awareness: Cambodia uses both USD and Khmer Riel (KHR). Show USD with KHR equivalents where helpful.
 5. If the user asks in Khmer, reply fluently and politely in Khmer (ភាសាខ្មែរ). If asked in English, reply in English.
 
@@ -268,11 +268,11 @@ ${recentIncomesList.join('\n') || 'No approved incomes yet'}`;
 
     // C. Rule-Based Fallback if AI services are unavailable
     const fallbackReply =
-      `### 📊 Financial Ledger Summary for **${workspace.name}**\n\n` +
+      `### Financial Ledger Summary for **${workspace.name}**\n\n` +
       `Here is a quick snapshot of your approved finances:\n\n` +
       `* **Total Approved Inflow:** $${totalIncomeUsd.toFixed(2)} USD (${totalIncomeKhr.toLocaleString()} ៛)\n` +
       `* **Total Approved Outflow:** $${totalExpenseUsd.toFixed(2)} USD (${totalExpenseKhr.toLocaleString()} ៛)\n` +
-      `* **Net Cash Position:** ${netCashflowUsd >= 0 ? '🟢 +$' : '🔴 -$'}${Math.abs(netCashflowUsd).toFixed(2)} USD\n` +
+      `* **Net Cash Position:** ${netCashflowUsd >= 0 ? '+$' : '-$'}${Math.abs(netCashflowUsd).toFixed(2)} USD\n` +
       `* **Monthly Burn Rate:** ~$${averageMonthlyBurn.toFixed(2)} USD / month\n` +
       `* **Estimated Runway:** ~${estimatedRunwayMonths} months\n` +
       `* **Pending Approvals Queue:** ${pendingReceipts.length} expenses · ${pendingIncomes.length} incomes waiting in Approvals.\n\n` +

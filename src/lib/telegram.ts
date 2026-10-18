@@ -61,10 +61,10 @@ export async function testTelegramConnection(
 
     // 2. If chatId provided, send test ping (supports comma-separated list of IDs)
     if (chatId) {
-      const pingText = `<b>🤖 Komnottra CFO Bot Connected!</b>\n\n` +
-        `✅ Successfully linked to workspace: <b>${workspaceName}</b>\n` +
-        `📈 You will now receive live alerts for large expenses, income, anomalies, and daily digests.\n\n` +
-        `<i>💬 You can message this bot anytime to ask about your company cashflow, spendings, or runway predictions!</i>`;
+      const pingText = `<b>Komnottra CFO Bot Connected</b>\n\n` +
+        `Successfully linked to workspace: <b>${workspaceName}</b>\n` +
+        `You will now receive live alerts for large expenses, income, anomalies, and daily digests.\n\n` +
+        `<i>You can message this bot anytime to ask about your company cashflow, spendings, or runway predictions!</i>`;
 
       const chatIds = chatId.split(',').map((s: string) => s.trim()).filter(Boolean);
       const errors: string[] = [];
@@ -127,7 +127,7 @@ export async function notifyWorkspaceAlert(
         if (amountUsd < workspace.notifyHighSpendMin) return false;
 
         message =
-          `🚨 <b>High Expense Alert ($${amountUsd.toFixed(2)})</b>\n\n` +
+          `<b>[Alert] High Expense Claim ($${amountUsd.toFixed(2)})</b>\n\n` +
           `• <b>Payee:</b> ${payload.payee || 'Unknown'}\n` +
           `• <b>Claimant:</b> ${payload.claimantName || 'Staff Member'}\n` +
           `• <b>Category:</b> ${payload.category || 'General'}\n` +
@@ -141,7 +141,7 @@ export async function notifyWorkspaceAlert(
       case 'NEW_INCOME': {
         if (!workspace.notifyNewIncome) return false;
         message =
-          `💵 <b>Company Inflow Recorded</b>\n\n` +
+          `<b>[Notice] Company Inflow Recorded</b>\n\n` +
           `• <b>Client/Source:</b> ${payload.clientName || 'Direct Client'}\n` +
           `• <b>Amount:</b> ${payload.totalFormatted || `$${payload.total}`}\n` +
           `• <b>Category:</b> ${payload.category || 'Revenue'}\n` +
@@ -154,7 +154,7 @@ export async function notifyWorkspaceAlert(
       case 'ANOMALY': {
         if (!workspace.notifyAnomalies) return false;
         message =
-          `⚠️ <b>Spending Anomaly Detected</b>\n\n` +
+          `<b>[Warning] Spending Anomaly Detected</b>\n\n` +
           `• <b>Reason:</b> ${payload.reason || 'Duplicate receipt or suspicious value'}\n` +
           `• <b>Payee:</b> ${payload.payee || '—'}\n` +
           `• <b>Amount:</b> ${payload.amountFormatted || '—'}\n` +
@@ -166,7 +166,7 @@ export async function notifyWorkspaceAlert(
       case 'BUDGET_WARNING': {
         if (!workspace.notifyBudgetAlert) return false;
         message =
-          `🛑 <b>Budget Threshold Reached (${payload.percentage || '80'}%)</b>\n\n` +
+          `<b>[Warning] Budget Threshold Reached (${payload.percentage || '80'}%)</b>\n\n` +
           `• <b>Monthly Budget:</b> $${workspace.monthlyBudgetUsd.toLocaleString()}\n` +
           `• <b>Current Spend:</b> $${(payload.currentSpend || 0).toLocaleString()}\n` +
           `• <b>Remaining:</b> $${(payload.remaining || 0).toLocaleString()}\n\n` +
@@ -177,11 +177,11 @@ export async function notifyWorkspaceAlert(
       case 'DAILY_DIGEST': {
         if (!workspace.notifyDailyDigest) return false;
         message =
-          `☀️ <b>Morning CFO Briefing: ${workspace.name}</b>\n\n` +
+          `<b>Morning CFO Briefing: ${workspace.name}</b>\n\n` +
           `• <b>Yesterday's Spend:</b> $${(payload.yesterdaySpend || 0).toFixed(2)}\n` +
           `• <b>Month-To-Date Inflow:</b> $${(payload.mtdIncome || 0).toFixed(2)}\n` +
           `• <b>Month-To-Date Outflow:</b> $${(payload.mtdExpense || 0).toFixed(2)}\n` +
-          `• <b>Net Cashflow:</b> ${payload.netCashflow >= 0 ? '🟢 +' : '🔴 -'}$${Math.abs(payload.netCashflow || 0).toFixed(2)}\n` +
+          `• <b>Net Cashflow:</b> ${payload.netCashflow >= 0 ? '+' : '-'}$${Math.abs(payload.netCashflow || 0).toFixed(2)}\n` +
           `• <b>Estimated Runway:</b> ${payload.runwayMonths ? `${payload.runwayMonths} months` : 'N/A'}\n\n` +
           `<i>Reply to this bot to ask any questions about your financials!</i>`;
         break;
@@ -348,14 +348,14 @@ Provide a direct, accurate, data-backed answer based on the real financial ledge
     }
 
     // Rule-based fallback if no AI API configured
-    return `📊 <b>Financial Overview for ${workspace.name}</b>\n\n` +
+    return `<b>Financial Overview for ${workspace.name}</b>\n\n` +
       `• <b>Total Spend:</b> $${totalExpenseUsd.toFixed(2)} (${totalExpenseKhr.toLocaleString()} ៛)\n` +
       `• <b>Total Income:</b> $${totalIncomeUsd.toFixed(2)}\n` +
-      `• <b>Net Position:</b> ${netCashflowUsd >= 0 ? '🟢 +' : '🔴 -'}$${Math.abs(netCashflowUsd).toFixed(2)}\n` +
+      `• <b>Net Position:</b> ${netCashflowUsd >= 0 ? '+' : '-'}$${Math.abs(netCashflowUsd).toFixed(2)}\n` +
       `• <b>Burn Rate:</b> ~$${averageMonthlyBurn.toFixed(2)}/mo\n\n` +
       `<i>Configure GEMINI_API_KEY or AI_BASE_URL for conversational natural language insights.</i>`;
   } catch (err: any) {
     console.error('Error in askWorkspaceCfoAgent:', err);
-    return `❌ An error occurred while analyzing your workspace data: ${err.message}`;
+    return `An error occurred while analyzing your workspace data: ${err.message}`;
   }
 }

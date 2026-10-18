@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
                 chat_id: cqChatId,
                 message_id: messageId,
                 parse_mode: 'HTML',
-                text: `💵 <b>Recorded as Company Inflow (Pending Review)!</b>\n\n` +
+                text: `<b>Recorded as Company Inflow (Pending Review)</b>\n\n` +
                   `• <b>Client/Source:</b> ${r.payee}\n` +
                   `• <b>Amount:</b> ${r.total} ${r.currency}\n` +
                   `• <b>Date:</b> ${r.date}\n` +
@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
               chat_id: cqChatId,
               message_id: messageId,
               parse_mode: 'HTML',
-              text: `⏳ <b>Confirmed as Company Expense (Pending Review)!</b>\n\n` +
+              text: `<b>Confirmed as Company Expense (Pending Review)</b>\n\n` +
                 `• <b>Merchant:</b> ${r.payee}\n` +
                 `• <b>Amount:</b> ${r.total} ${r.currency}\n` +
                 `• <b>Date:</b> ${r.date}\n` +
@@ -214,33 +214,33 @@ export async function POST(req: NextRequest) {
           await sendTelegramMessage(
             token,
             chatId,
-            `👑 <b>Welcome, Owner of ${workspace.name}!</b>\n\n` +
+            `<b>Welcome, Owner of ${workspace.name}!</b>\n\n` +
               `Your Telegram Chat ID: <code>${chatId}</code>\n` +
-              `Role: 👑 <b>Executive Owner (Full CFO & Alerts Access)</b>\n\n` +
+              `Role: <b>Executive Owner (Full CFO & Alerts Access)</b>\n\n` +
               `<b>Available actions:</b>\n` +
-              `• 📸 Snap receipt/invoice photos to send directly for review\n` +
-              `• 💬 Ask financial questions (e.g. <i>"What's our burn rate?"</i>, <i>"/summary"</i>, <i>"/runway"</i>)\n` +
-              `• 🚨 Receive real-time alerts whenever a receipt is added exceeding $${workspace.notifyHighSpendMin}\n\n` +
+              `• Snap receipt/invoice photos to send directly for review\n` +
+              `• Ask financial questions (e.g. <i>"What's our burn rate?"</i>, <i>"/summary"</i>, <i>"/runway"</i>)\n` +
+              `• Receive real-time alerts whenever a receipt is added exceeding $${workspace.notifyHighSpendMin}\n\n` +
               `Type /help anytime to see available commands.`
           );
         } else if (workspace && isMember) {
           await sendTelegramMessage(
             token,
             chatId,
-            `👋 <b>Welcome to ${workspace.name}!</b>\n\n` +
+            `<b>Welcome to ${workspace.name}!</b>\n\n` +
               `Your Telegram Chat ID: <code>${chatId}</code>\n` +
-              `Role: 👤 <b>Team Member (Submissions Only)</b>\n\n` +
+              `Role: <b>Team Member (Submissions Only)</b>\n\n` +
               `<b>How to submit an expense or income:</b>\n` +
-              `📸 Simply snap and send a clear photo of any receipt, bill, or invoice.\n` +
+              `Simply snap and send a clear photo of any receipt, bill, or invoice.\n` +
               `You will be prompted to select <b>Spending (Expense)</b> or <b>Income</b>, and it will be sent to the Approvals tab for owner review!`
           );
         } else {
           await sendTelegramMessage(
             token,
             chatId,
-            `👋 <b>Welcome to Komnottra Bot!</b>\n\n` +
+            `<b>Welcome to Komnottra Bot!</b>\n\n` +
               `Your Telegram Chat ID is:\n<code>${chatId}</code>\n\n` +
-              `<i>Share this ID with your Workspace Owner. They can add you in <b>Settings ➔ Telegram CFO Agent & Chatbot</b> as an <b>Owner</b> (full CFO access) or as a <b>Team Member</b> (receipt submission only).</i>`
+              `<i>Share this ID with your Workspace Owner. They can add you in <b>Settings -> Telegram CFO Agent & Chatbot</b> as an <b>Owner</b> (full CFO access) or as a <b>Team Member</b> (receipt submission only).</i>`
           );
         }
       }
@@ -253,7 +253,7 @@ export async function POST(req: NextRequest) {
         await sendTelegramMessage(
           token,
           chatId,
-          `👋 <b>Komnottra CFO Bot</b>\n\n` +
+          `<b>Komnottra CFO Bot</b>\n\n` +
             `This chat is not connected to a workspace yet.\n` +
             `Your Telegram Chat ID is: <code>${chatId}</code>\n\n` +
             `<i>Share this ID with your Workspace Owner to link your account.</i>`
@@ -269,7 +269,7 @@ export async function POST(req: NextRequest) {
 
     // 3. Handle Receipt Photo Upload directly in Telegram
     if (message.photo && Array.isArray(message.photo) && message.photo.length > 0) {
-      await sendTelegramMessage(token, chatId, `⏳ <i>Scanning receipt with Gemini Vision...</i>`);
+      await sendTelegramMessage(token, chatId, `<i>Scanning receipt with Gemini Vision...</i>`);
 
       const photoObj = message.photo[message.photo.length - 1]; // Highest resolution
       const fileRes = await fetch(`https://api.telegram.org/bot${token}/getFile?file_id=${photoObj.file_id}`);
@@ -361,20 +361,20 @@ export async function POST(req: NextRequest) {
             await sendTelegramMessage(
               token,
               chatId,
-              `📸 <b>Receipt Parsed Successfully!</b>\n\n` +
+              `<b>Receipt Parsed Successfully</b>\n\n` +
                 `• <b>Merchant / Payer:</b> ${parsed.vendor}\n` +
                 `• <b>Amount:</b> ${parsed.total} ${parsed.currency}\n` +
                 `• <b>Date:</b> ${parsed.date}\n` +
                 `• <b>Category:</b> ${parsed.category}\n` +
                 `• <b>TIN:</b> ${parsed.vendorTin || '—'}\n` +
                 `• <b>Submitted By:</b> ${telegramSenderName}\n\n` +
-                `👉 <b>Please choose: Is this a Spending (Expense) or Incoming (Revenue)?</b>`,
+                `<b>Please choose: Is this a Spending (Expense) or Incoming (Revenue)?</b>`,
               {
                 replyMarkup: {
                   inline_keyboard: [
                     [
-                      { text: '🔴 Expense / Spending', callback_data: `type_exp:${receipt.id}` },
-                      { text: '🟢 Income / Inflow', callback_data: `type_inc:${receipt.id}` },
+                      { text: 'Expense / Spending', callback_data: `type_exp:${receipt.id}` },
+                      { text: 'Income / Inflow', callback_data: `type_inc:${receipt.id}` },
                     ],
                   ],
                 },
@@ -388,7 +388,7 @@ export async function POST(req: NextRequest) {
       await sendTelegramMessage(
         token,
         chatId,
-        `⚠️ Could not clearly read the receipt details. Please ensure the image is bright and unblurred.`
+        `Could not clearly read the receipt details. Please ensure the image is bright and unblurred.`
       );
       return NextResponse.json({ ok: true });
     }
@@ -400,8 +400,8 @@ export async function POST(req: NextRequest) {
         await sendTelegramMessage(
           token,
           chatId,
-          `🤖 <b>Komnottra Team Member Help:</b>\n\n` +
-            `• 📸 <b>Send any receipt or invoice photo</b> to submit for approval.\n` +
+          `<b>Komnottra Team Member Help:</b>\n\n` +
+            `• <b>Send any receipt or invoice photo</b> to submit for approval.\n` +
             `• Tap <b>Expense</b> or <b>Income</b> on the buttons below your upload.\n\n` +
             `<i>Note: Company financial summaries and CFO chat queries are restricted to Workspace Owners.</i>`
         );
@@ -411,10 +411,10 @@ export async function POST(req: NextRequest) {
       await sendTelegramMessage(
         token,
         chatId,
-        `🔒 <b>Staff Access Only</b>\n\n` +
+        `<b>Staff Access Only</b>\n\n` +
           `Your Telegram ID is authorized as a <b>Team Member</b> (receipt & invoice submission only).\n\n` +
           `Company financials, runway projections, and CFO chat queries are reserved for Workspace Owners.\n\n` +
-          `<i>📸 To submit an expense, simply snap and send a photo of your receipt!</i>`
+          `<i>To submit an expense, simply snap and send a photo of your receipt!</i>`
       );
       return NextResponse.json({ ok: true });
     }
@@ -422,11 +422,11 @@ export async function POST(req: NextRequest) {
       await sendTelegramMessage(
         token,
         chatId,
-        `🤖 <b>Komnottra CFO Bot Commands:</b>\n\n` +
+        `<b>Komnottra CFO Bot Commands:</b>\n\n` +
           `• <b>/summary</b> - Get month-to-date cashflow summary\n` +
           `• <b>/runway</b> - Check cash runway & monthly burn\n` +
           `• <b>/forecast</b> - 30-day predictive expense projection\n` +
-          `• <b>📸 Photo</b> - Snap a receipt photo to log directly\n\n` +
+          `• <b>Photo</b> - Snap a receipt photo to log directly\n\n` +
           `<i>Or just ask me any question naturally, like:</i>\n` +
           `• <i>"How much did we spend on utilities this month?"</i>\n` +
           `• <i>"What's our net profit in USD and Riel?"</i>\n` +

@@ -69,6 +69,7 @@ import {
   Send,
   Bot,
   MessageSquare,
+  Lock,
   ArrowDownLeft,
   ArrowUpRight,
   Coins,
@@ -425,7 +426,7 @@ export default function KomnottraApp() {
     {
       id: 'welcome-cfo',
       role: 'assistant',
-      content: `Hello! 👋 I am your **Komnottra AI CFO & Financial Advisor**.\n\nI can analyze your approved receipts, track client incomes, calculate your monthly burn rate, forecast cash runway, and break down spending by category or department.\n\nAsk me anything or tap one of the suggested prompts above!`,
+      content: `Hello! I am your **Komnottra AI CFO & Financial Advisor**.\n\nI can analyze your approved receipts, track client incomes, calculate your monthly burn rate, forecast cash runway, and break down spending by category or department.\n\nAsk me anything or tap one of the suggested prompts above!`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -481,7 +482,7 @@ export default function KomnottraApp() {
           {
             id: 'err-' + Date.now(),
             role: 'assistant',
-            content: `⚠️ ${data.error || 'Unable to connect to AI CFO at this time.'}`,
+            content: data.error || 'Unable to connect to AI CFO at this time.',
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           },
         ]);
@@ -492,7 +493,7 @@ export default function KomnottraApp() {
         {
           id: 'err-' + Date.now(),
           role: 'assistant',
-          content: `⚠️ Network error: ${err.message || 'Could not communicate with server.'}`,
+          content: `Network error: ${err.message || 'Could not communicate with server.'}`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
@@ -2840,15 +2841,6 @@ export default function KomnottraApp() {
                 <span className={styles.headerRateUnit}>៛</span>
               </div>
 
-              <button
-                type="button"
-                className={styles.iconCircleBtn}
-                onClick={() => alert(`${approvalQueue.length} open approvals pending review.`)}
-                title="Notifications"
-              >
-                <Bell size={16} />
-              </button>
-
               {/* Desktop-Only: Profile Pill & Dropdown */}
               <div className={styles.desktopProfileWrapper} style={{ position: 'relative' }}>
                 <button
@@ -4256,8 +4248,9 @@ export default function KomnottraApp() {
                                     </div>
                                   </div>
                                 </div>
-                                <div style={{ fontSize: '12px', color: '#8C8075', marginTop: '3px' }}>
-                                  {item.submittedBy ? `👤 ${item.submittedBy}` : item.claimant} · {item.date} · {item.category}
+                                <div style={{ fontSize: '12px', color: '#8C8075', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <User size={12} />
+                                  <span>{item.submittedBy || item.claimant} · {item.date} · {item.category}</span>
                                 </div>
                                 <div style={{ fontSize: '11px', color: '#D97706', fontWeight: 700, marginTop: '4px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                                   <AlertTriangle size={12} /> {item.flag} · {item.note}
@@ -4974,7 +4967,9 @@ export default function KomnottraApp() {
 
                       <div className={styles.settingsFormGroup}>
                         <label className={styles.settingsLabel} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          👑 Owner Telegram Chat ID(s) <span style={{ fontSize: '11px', color: '#7A222B', fontWeight: 600 }}>(Full CFO Access &amp; Alerts)</span>
+                          <ShieldCheck size={16} color="#7A222B" />
+                          <span>Owner Telegram Chat ID(s)</span>
+                          <span style={{ fontSize: '11px', color: '#7A222B', fontWeight: 600 }}>(Full CFO Access &amp; Alerts)</span>
                         </label>
                         <input
                           type="text"
@@ -4990,7 +4985,9 @@ export default function KomnottraApp() {
 
                       <div className={styles.settingsFormGroup}>
                         <label className={styles.settingsLabel} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          👤 Staff / Member Telegram Chat ID(s) <span style={{ fontSize: '11px', color: '#0369A1', fontWeight: 600 }}>(Submissions Only)</span>
+                          <Users size={16} color="#0369A1" />
+                          <span>Staff / Member Telegram Chat ID(s)</span>
+                          <span style={{ fontSize: '11px', color: '#0369A1', fontWeight: 600 }}>(Submissions Only)</span>
                         </label>
                         <input
                           type="text"
@@ -5584,11 +5581,8 @@ export default function KomnottraApp() {
                 {/* Header */}
                 <div className={styles.chatbotHeader}>
                   <div>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#8C8075', letterSpacing: '0.08em', marginBottom: '4px' }}>
-                      CONVERSATIONAL INTELLIGENCE · OWNER ACCESS
-                    </div>
                     <h2 className={styles.chatbotHeaderTitle}>
-                      <Bot size={26} color="#7A222B" /> AI CFO Business Chatbot
+                      AI CFO Business Chatbot
                     </h2>
                   </div>
 
@@ -5605,7 +5599,7 @@ export default function KomnottraApp() {
                           {
                             id: 'welcome-cfo-' + Date.now(),
                             role: 'assistant',
-                            content: `Hello! 👋 I am your **Komnottra AI CFO & Financial Advisor**.\n\nI can analyze your approved receipts, track client incomes, calculate your monthly burn rate, forecast cash runway, and break down spending by category or department.\n\nAsk me anything or tap one of the suggested prompts above!`,
+                            content: `Hello! I am your **Komnottra AI CFO & Financial Advisor**.\n\nI can analyze your approved receipts, track client incomes, calculate your monthly burn rate, forecast cash runway, and break down spending by category or department.\n\nAsk me anything or tap one of the suggested prompts above!`,
                             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                           },
                         ]);
@@ -5658,7 +5652,7 @@ export default function KomnottraApp() {
                     onClick={() => handleSendChatMessage('តើចំណូល និងការចំណាយសរុបរបស់ក្រុមហ៊ុនមានចំនួនប៉ុន្មាន?')}
                     disabled={isChatLoading}
                   >
-                    🇰🇭 សង្ខេបចំណូលចំណាយ (Khmer)
+                    <FileText size={13} /> សង្ខេបចំណូលចំណាយ (Khmer)
                   </button>
                 </div>
 
@@ -5769,13 +5763,36 @@ export default function KomnottraApp() {
                 </form>
 
                 <div className={styles.chatbotDisclaimer}>
-                  🔒 Private business conversation. Insights are calculated strictly from your workspace's approved transactions.
+                  <Lock size={12} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} /> Private business conversation. Insights are calculated strictly from your workspace's approved transactions.
                 </div>
               </div>
             )}
 
           </main>
         </div>
+
+        {/* Floating Quick AI CFO Chatbot Trigger (Bottom Right of every page) */}
+        {activeScreen !== 'chatbot' && (
+          <button
+            type="button"
+            className={styles.floatingChatWidget}
+            onClick={() => {
+              if (currentUser?.role === 'OWNER') {
+                setActiveScreen('chatbot');
+              } else {
+                alert('The AI CFO Chatbot is reserved exclusively for Company Owners.');
+              }
+            }}
+            title="Chat with AI CFO"
+            aria-label="Open AI CFO Chatbot"
+          >
+            <div className={styles.floatingChatIconWrap}>
+              <Bot size={20} color="#FFFFFF" />
+              <span className={styles.floatingChatPulseDot} />
+            </div>
+            <span className={styles.floatingChatLabel}>AI CFO Chat</span>
+          </button>
+        )}
 
         {/* =========================================================================
             RECORD COMPANY INCOME / BILL MODAL
