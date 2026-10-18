@@ -238,7 +238,7 @@ export async function POST(req: NextRequest) {
     // Use our currency calculation engine
     const math = calculateReceiptAmounts(totalAmount, currency, hasVat, workspace.exchangeRate);
 
-    const defaultStatus = session?.role === 'OWNER' ? 'APPROVED' : (body.status || 'PENDING');
+    const defaultStatus = body.status || 'PENDING';
 
     let finalImageUrl = body.imageUrl || '';
     if (finalImageUrl.startsWith('data:image/')) {

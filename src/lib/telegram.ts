@@ -178,7 +178,7 @@ export async function notifyWorkspaceAlert(
 
     if (!message) return false;
 
-    const chatIds = workspace.telegramChatId.split(',').map((s) => s.trim()).filter(Boolean);
+    const chatIds = workspace.telegramChatId.split(',').map((s: string) => s.trim()).filter(Boolean);
     if (chatIds.length === 0) return false;
 
     let anySuccess = false;
@@ -216,14 +216,20 @@ export async function askWorkspaceCfoAgent(workspaceId: string, userQuery: strin
       return "Workspace not found. Please connect your bot to a valid Komnottra workspace.";
     }
 
-    // 1. Calculate Financial Summary Context
+    // 1. Separate Approved vs Pending
+    const approvedReceipts = workspace.receipts.filter((r: any) => r.status === 'APPROVED' || r.status === 'REIMBURSED');
+    const pendingReceipts = workspace.receipts.filter((r: any) => r.status === 'PENDING');
+    const approvedIncomes = workspace.incomes.filter((inc: any) => inc.status === 'APPROVED');
+    const pendingIncomes = workspace.incomes.filter((inc: any) => inc.status === 'PENDING');
+
+    // Calculate Financial Summary Context (Approved Only)
     let totalExpenseUsd = 0;
     let totalExpenseKhr = 0;
     const categorySpend: Record<string, number> = {};
     const departmentSpend: Record<string, number> = {};
     const recentExpensesList: string[] = [];
 
-    for (const r of workspace.receipts) {
+    for (const r of approvedReceipts) {
       const usdAmount = r.currency === 'USD' ? r.total : r.total / (workspace.exchangeRate || 4100);
       const khrAmount = r.currency === 'KHR' ? r.total : r.total * (workspace.exchangeRate || 4100);
       totalExpenseUsd += usdAmount;
@@ -244,7 +250,7 @@ export async function askWorkspaceCfoAgent(workspaceId: string, userQuery: strin
     let totalIncomeKhr = 0;
     const recentIncomesList: string[] = [];
 
-    for (const inc of workspace.incomes) {
+    for (const inc of approvedIncomes) {
       const usdAmount = inc.currency === 'USD' ? inc.total : inc.total / (workspace.exchangeRate || 4100);
       const khrAmount = inc.currency === 'KHR' ? inc.total : inc.total * (workspace.exchangeRate || 4100);
       totalIncomeUsd += usdAmount;
@@ -256,7 +262,7 @@ export async function askWorkspaceCfoAgent(workspaceId: string, userQuery: strin
     }
 
     const netCashflowUsd = totalIncomeUsd - totalExpenseUsd;
-    const averageMonthlyBurn = Math.max(100, totalExpenseUsd / (Math.max(1, workspace.receipts.length / 10)));
+    const averageMonthlyBurn = Math.max(100, totalExpenseUsd / (Math.max(1, approvedReceipts.length / 10)));
     const estimatedRunwayMonths = totalIncomeUsd > 0 ? (totalIncomeUsd / averageMonthlyBurn).toFixed(1) : 'Unknown';
 
     // 2. Prepare AI Prompt
@@ -268,16 +274,17 @@ CURRENT WORKSPACE FINANCIAL FACTS:
 - Active Base Currency: ${workspace.baseCurrency}
 - Active Exchange Rate: 1 USD = ${workspace.exchangeRate} KHR
 - Monthly Budget: $${workspace.monthlyBudgetUsd}
-- Total Logged Expenses: $${totalExpenseUsd.toFixed(2)} USD (${totalExpenseKhr.toLocaleString()} KHR) across ${workspace.receipts.length} receipts
-- Total Logged Income: $${totalIncomeUsd.toFixed(2)} USD (${totalIncomeKhr.toLocaleString()} KHR) across ${workspace.incomes.length} records
-- Net Cashflow: ${netCashflowUsd >= 0 ? '+' : '-'}$${Math.abs(netCashflowUsd).toFixed(2)} USD
+- Total Approved Expenses: $${totalExpenseUsd.toFixed(2)} USD (${totalExpenseKhr.toLocaleString()} KHR) across ${approvedReceipts.length} approved receipts
+- Total Approved Income: $${totalIncomeUsd.toFixed(2)} USD (${totalIncomeKhr.toLocaleString()} KHR) across ${approvedIncomes.length} approved records
+- Net Cashflow (Approved): ${netCashflowUsd >= 0 ? '+' : '-'}$${Math.abs(netCashflowUsd).toFixed(2)} USD
 - Estimated Monthly Burn Rate: ~$${averageMonthlyBurn.toFixed(2)} USD
 - Projected Cash Runway: ~${estimatedRunwayMonths} months
+- Pending Items to Approve on Web Dashboard: ${pendingReceipts.length} pending expense claims, ${pendingIncomes.length} pending income records (${pendingReceipts.length + pendingIncomes.length} total pending review). Note: Unapproved items do not count toward official financial reports or runway until the owner approves them on the web dashboard.
 
-TOP CATEGORY SPEND:
+TOP CATEGORY SPEND (APPROVED):
 ${Object.entries(categorySpend).map(([k, v]) => `• ${k}: $${v.toFixed(2)}`).join('\n') || 'None recorded yet'}
 
-TOP DEPARTMENT SPEND:
+TOP DEPARTMENT SPEND (APPROVED):
 ${Object.entries(departmentSpend).map(([k, v]) => `• ${k}: $${v.toFixed(2)}`).join('\n') || 'None recorded yet'}
 
 RECENT EXPENSES:

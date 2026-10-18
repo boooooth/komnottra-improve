@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
         vat: numVat,
         total: numTotal,
         totalBaseEquiv,
-        status: status || 'RECEIVED',
+        status: status || 'PENDING',
         reference: reference || null,
       },
     });
@@ -179,15 +179,60 @@ export async function PATCH(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { id, status } = body;
+    const { id, ids, status, ...updateFields } = body;
 
-    if (!id || !status) {
-      return NextResponse.json({ success: false, error: 'ID and status required' }, { status: 400 });
+    // Support batch approve / update for multiple incomes
+    if (ids && Array.isArray(ids) && ids.length > 0) {
+      const dataToUpdate: any = {};
+      if (status) dataToUpdate.status = status;
+
+      await prisma.income.updateMany({
+        where: { id: { in: ids } },
+        data: dataToUpdate,
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `Successfully updated ${ids.length} income records`,
+      });
+    }
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'Income ID is required' }, { status: 400 });
+    }
+
+    const dataToUpdate: any = {};
+    if (status) dataToUpdate.status = status;
+    if (updateFields.clientName !== undefined) dataToUpdate.clientName = updateFields.clientName;
+    if (updateFields.invoiceNo !== undefined) dataToUpdate.invoiceNo = updateFields.invoiceNo;
+    if (updateFields.date !== undefined) dataToUpdate.date = updateFields.date;
+    if (updateFields.clientTin !== undefined) dataToUpdate.clientTin = updateFields.clientTin;
+    if (updateFields.description !== undefined) dataToUpdate.description = updateFields.description;
+    if (updateFields.category !== undefined) dataToUpdate.category = updateFields.category;
+    if (updateFields.paymentMethod !== undefined) dataToUpdate.paymentMethod = updateFields.paymentMethod;
+
+    if (updateFields.total !== undefined || updateFields.currency !== undefined) {
+      const existing = await prisma.income.findUnique({ where: { id }, include: { workspace: true } });
+      if (existing) {
+        const totalNum = updateFields.total !== undefined ? parseFloat(updateFields.total) || 0 : existing.total;
+        const curr = updateFields.currency !== undefined ? updateFields.currency : existing.currency;
+        const isUsd = curr === 'USD';
+        const activeRate = existing.workspace?.exchangeRate || 4100;
+        let totalBaseEquiv = 0;
+        if (existing.workspace?.baseCurrency === 'USD') {
+          totalBaseEquiv = isUsd ? totalNum : totalNum / activeRate;
+        } else {
+          totalBaseEquiv = isUsd ? totalNum * activeRate : totalNum;
+        }
+        dataToUpdate.total = totalNum;
+        dataToUpdate.currency = curr;
+        dataToUpdate.totalBaseEquiv = totalBaseEquiv;
+      }
     }
 
     const updated = await prisma.income.update({
       where: { id },
-      data: { status },
+      data: dataToUpdate,
     });
 
     return NextResponse.json({ success: true, income: updated });

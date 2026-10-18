@@ -27,7 +27,13 @@ export async function GET(req: NextRequest) {
 
     const rate = workspace.exchangeRate || 4100;
 
-    // 1. Calculate Expenses & Category / Dept Distributions
+    // Separate Approved vs Pending
+    const approvedReceipts = workspace.receipts.filter((r: any) => r.status === 'APPROVED' || r.status === 'REIMBURSED');
+    const pendingReceipts = workspace.receipts.filter((r: any) => r.status === 'PENDING');
+    const approvedIncomes = workspace.incomes.filter((inc: any) => inc.status === 'APPROVED');
+    const pendingIncomes = workspace.incomes.filter((inc: any) => inc.status === 'PENDING');
+
+    // 1. Calculate Expenses & Category / Dept Distributions (Approved Only)
     let totalExpenseUsd = 0;
     let totalExpenseKhr = 0;
     let receiptsWithTinCount = 0;
@@ -35,11 +41,11 @@ export async function GET(req: NextRequest) {
     const expenseByDept: Record<string, { usd: number; count: number }> = {};
     const monthlyTimeline: Record<string, { incomeUsd: number; expenseUsd: number; netUsd: number }> = {};
 
-    // Track potential duplicates (anomalies)
+    // Track potential duplicates (anomalies) among approved receipts
     const seenReceipts = new Set<string>();
     const anomalies: Array<{ id: string; type: string; title: string; description: string; date: string }> = [];
 
-    for (const r of workspace.receipts) {
+    for (const r of approvedReceipts) {
       const usd = r.currency === 'USD' ? r.total : r.total / rate;
       const khr = r.currency === 'KHR' ? r.total : r.total * rate;
       totalExpenseUsd += usd;
@@ -91,12 +97,12 @@ export async function GET(req: NextRequest) {
       monthlyTimeline[monthKey].expenseUsd += usd;
     }
 
-    // 2. Calculate Incomes
+    // 2. Calculate Incomes (Approved Only)
     let totalIncomeUsd = 0;
     let totalIncomeKhr = 0;
     const incomeByCat: Record<string, { usd: number; count: number }> = {};
 
-    for (const inc of workspace.incomes) {
+    for (const inc of approvedIncomes) {
       const usd = inc.currency === 'USD' ? inc.total : inc.total / rate;
       const khr = inc.currency === 'KHR' ? inc.total : inc.total * rate;
       totalIncomeUsd += usd;
@@ -121,7 +127,7 @@ export async function GET(req: NextRequest) {
     const netCashflowKhr = totalIncomeKhr - totalExpenseKhr;
 
     // 3. AI Predictive Analytics & Runway Forecasting
-    const receiptCount = workspace.receipts.length;
+    const receiptCount = approvedReceipts.length;
     const avgMonthlyBurnUsd = receiptCount > 0 ? Math.max(50, totalExpenseUsd / Math.max(1, receiptCount / 8)) : 0;
     const availableTreasuryUsd = Math.max(0, netCashflowUsd);
     const runwayMonths = avgMonthlyBurnUsd > 0 ? (availableTreasuryUsd / avgMonthlyBurnUsd) : 0;
@@ -151,8 +157,13 @@ export async function GET(req: NextRequest) {
         nextMonthForecastUsd: parseFloat(nextMonthForecastUsd.toFixed(2)),
         nextMonthForecastKhr: Math.round(nextMonthForecastKhr),
         taxComplianceScore,
-        totalReceipts: receiptCount,
-        totalIncomes: workspace.incomes.length,
+        totalReceipts: approvedReceipts.length,
+        totalIncomes: approvedIncomes.length,
+        pendingApprovals: {
+          receipts: pendingReceipts.length,
+          incomes: pendingIncomes.length,
+          total: pendingReceipts.length + pendingIncomes.length,
+        },
       },
       distributions: {
         expenseByCategory: expenseByCat,

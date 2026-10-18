@@ -148,7 +148,7 @@ model Income {
   total          Float
   totalBaseEquiv Float
 
-  status         String     @default("RECEIVED") // RECEIVED, PENDING, OVERDUE
+  status         String     @default("PENDING") // PENDING, APPROVED, REJECTED
   reference      String?
   submittedBy    String?    // Submitter display name
 

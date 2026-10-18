@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import ExcelJS from 'exceljs';
-
 import { getCurrentUser } from '@/lib/auth';
 
 export async function GET(req: NextRequest) {
@@ -11,12 +10,20 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized or no active workspace' }, { status: 401 });
     }
 
+    const workspace = await prisma.workspace.findUnique({
+      where: { id: session.workspaceId },
+    });
+
+    const rate = workspace?.exchangeRate || 4100;
+    const isBaseUsd = workspace?.baseCurrency === 'USD';
+
     const { searchParams } = new URL(req.url);
     const statusParam = searchParams.get('status');
     const statusFilter = statusParam && statusParam !== 'ALL'
       ? { status: statusParam }
       : { status: { in: ['APPROVED', 'REIMBURSED'] } };
 
+    // 1. Fetch Receipts (Expenses)
     const receipts = await prisma.receipt.findMany({
       where: {
         workspaceId: session.workspaceId,
@@ -29,16 +36,210 @@ export async function GET(req: NextRequest) {
       },
     });
 
+    // 2. Fetch Incomes
+    const incomeStatusFilter = statusParam && statusParam !== 'ALL'
+      ? { status: statusParam }
+      : { status: 'APPROVED' };
+
+    const incomes = await prisma.income.findMany({
+      where: {
+        workspaceId: session.workspaceId,
+        ...incomeStatusFilter,
+      },
+      orderBy: { date: 'asc' },
+    });
+
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'Komnottra · កំណត់ត្រា';
     workbook.created = new Date();
 
-    const worksheet = workbook.addWorksheet('Expense Ledger', {
+    // ----------------------------------------------------
+    // WORKSHEET 1: COMBINED CASHFLOW LEDGER (INFLOW & OUTFLOW)
+    // ----------------------------------------------------
+    const cashflowSheet = workbook.addWorksheet('Cashflow Ledger', {
       views: [{ showGridLines: true }],
     });
 
-    // 1. Define Columns matching the user's spreadsheet
-    worksheet.columns = [
+    cashflowSheet.columns = [
+      { header: 'No.', key: 'no', width: 8 },
+      { header: 'Date', key: 'date', width: 14 },
+      { header: 'Type', key: 'type', width: 14 },
+      { header: 'Ref / Doc #', key: 'refNo', width: 16 },
+      { header: 'Counterparty (Client / Vendor)', key: 'party', width: 28 },
+      { header: 'Category', key: 'category', width: 20 },
+      { header: 'Description / Note', key: 'description', width: 30 },
+      { header: 'Submitter', key: 'submitter', width: 18 },
+      { header: 'Currency', key: 'currency', width: 10 },
+      { header: 'Inflow (+)', key: 'inflow', width: 16 },
+      { header: 'Outflow (-)', key: 'outflow', width: 16 },
+      { header: isBaseUsd ? 'Net (USD Equiv)' : 'Net (KHR Equiv)', key: 'netBase', width: 20 },
+      { header: 'Status', key: 'status', width: 14 },
+    ];
+
+    // Style Header
+    const cfHeader = cashflowSheet.getRow(1);
+    cfHeader.height = 28;
+    cfHeader.eachCell((cell) => {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF1E293B' }, // Slate Navy
+      };
+      cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'left' };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FF0F172A' } },
+        bottom: { style: 'medium', color: { argb: 'FF0F172A' } },
+      };
+    });
+    [10, 11, 12].forEach((colIdx) => {
+      cfHeader.getCell(colIdx).alignment = { vertical: 'middle', horizontal: 'right' };
+    });
+
+    // Combine transactions chronologically
+    type CombinedItem = {
+      date: string;
+      type: 'INCOME' | 'EXPENSE';
+      refNo: string;
+      party: string;
+      category: string;
+      description: string;
+      submitter: string;
+      currency: string;
+      inflow: number;
+      outflow: number;
+      netBase: number;
+      status: string;
+    };
+
+    const combinedList: CombinedItem[] = [];
+
+    incomes.forEach((inc: any) => {
+      const baseEquiv = isBaseUsd
+        ? (inc.currency === 'USD' ? inc.total : inc.total / rate)
+        : (inc.currency === 'KHR' ? inc.total : inc.total * rate);
+      combinedList.push({
+        date: inc.date || inc.createdAt.toISOString().substring(0, 10),
+        type: 'INCOME',
+        refNo: inc.invoiceNo || '—',
+        party: inc.clientName,
+        category: inc.category || 'Client Services',
+        description: inc.reference || 'Client payment',
+        submitter: inc.submittedBy || 'Finance',
+        currency: inc.currency,
+        inflow: inc.total,
+        outflow: 0,
+        netBase: baseEquiv,
+        status: inc.status,
+      });
+    });
+
+    receipts.forEach((r: any) => {
+      const baseEquiv = isBaseUsd
+        ? (r.currency === 'USD' ? r.total : r.total / rate)
+        : (r.currency === 'KHR' ? r.total : r.total * rate);
+      combinedList.push({
+        date: r.date,
+        type: 'EXPENSE',
+        refNo: r.receiptNo || '—',
+        party: r.payee,
+        category: r.expenseCode || 'General',
+        description: r.description || 'Expense claim',
+        submitter: r.submittedBy || r.claimant?.name || 'Staff',
+        currency: r.currency,
+        inflow: 0,
+        outflow: r.total,
+        netBase: -baseEquiv,
+        status: r.status,
+      });
+    });
+
+    combinedList.sort((a, b) => a.date.localeCompare(b.date));
+
+    let cfRowIdx = 2;
+    combinedList.forEach((item, idx) => {
+      const row = cashflowSheet.addRow({
+        no: idx + 1,
+        date: item.date,
+        type: item.type === 'INCOME' ? 'INCOME (INFLOW)' : 'EXPENSE (OUTFLOW)',
+        refNo: item.refNo,
+        party: item.party,
+        category: item.category,
+        description: item.description,
+        submitter: item.submitter,
+        currency: item.currency,
+        inflow: item.inflow > 0 ? item.inflow : null,
+        outflow: item.outflow > 0 ? item.outflow : null,
+        netBase: item.netBase,
+        status: item.status,
+      });
+
+      row.height = 22;
+      const isEven = idx % 2 === 0;
+      row.eachCell((cell, colNumber) => {
+        cell.font = { name: 'Segoe UI', size: 9.5 };
+        cell.alignment = { vertical: 'middle' };
+        cell.border = {
+          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        };
+        if (isEven) {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+        }
+
+        // Color coding
+        if (colNumber === 3) {
+          cell.font = { bold: true, color: { argb: item.type === 'INCOME' ? 'FF16A34A' : 'FFDC2626' } };
+        } else if (colNumber === 10 && item.inflow > 0) {
+          cell.numFmt = item.currency === 'USD' ? '$#,##0.00' : '#,##0';
+          cell.alignment = { vertical: 'middle', horizontal: 'right' };
+          cell.font = { bold: true, color: { argb: 'FF16A34A' } };
+        } else if (colNumber === 11 && item.outflow > 0) {
+          cell.numFmt = item.currency === 'USD' ? '$#,##0.00' : '#,##0';
+          cell.alignment = { vertical: 'middle', horizontal: 'right' };
+          cell.font = { bold: true, color: { argb: 'FFDC2626' } };
+        } else if (colNumber === 12) {
+          cell.numFmt = isBaseUsd ? '$#,##0.00;($#,##0.00);"-"' : '#,##0;(#,##0);"-"';
+          cell.alignment = { vertical: 'middle', horizontal: 'right' };
+          cell.font = { bold: true, color: { argb: item.netBase >= 0 ? 'FF16A34A' : 'FFDC2626' } };
+        } else if (colNumber === 13) {
+          cell.font = { bold: true, color: { argb: item.status === 'APPROVED' ? 'FF16A34A' : 'FFD97706' } };
+        }
+      });
+      cfRowIdx++;
+    });
+
+    // Summary row for cashflow
+    if (combinedList.length > 0) {
+      const lastDataRow = cfRowIdx - 1;
+      const sumRow = cashflowSheet.addRow({});
+      sumRow.height = 26;
+      cashflowSheet.mergeCells(`A${cfRowIdx}:I${cfRowIdx}`);
+      const lbl = cashflowSheet.getCell(`A${cfRowIdx}`);
+      lbl.value = `Total Net Cashflow (${isBaseUsd ? 'USD' : 'KHR'})`;
+      lbl.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+      lbl.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+      lbl.alignment = { vertical: 'middle', indent: 1 };
+
+      const netSumCell = cashflowSheet.getCell(`L${cfRowIdx}`);
+      netSumCell.value = { formula: `SUM(L2:L${lastDataRow})` };
+      netSumCell.numFmt = isBaseUsd ? '$#,##0.00;($#,##0.00);"-"' : '#,##0;(#,##0);"-"';
+      netSumCell.font = { name: 'Segoe UI', size: 11, bold: true, color: { argb: 'FF0F172A' } };
+      netSumCell.alignment = { vertical: 'middle', horizontal: 'right' };
+      netSumCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+
+      ['J', 'K', 'M'].forEach((col) => {
+        cashflowSheet.getCell(`${col}${cfRowIdx}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+      });
+    }
+
+    // ----------------------------------------------------
+    // WORKSHEET 2: DETAILED EXPENSE OUTFLOWS
+    // ----------------------------------------------------
+    const expenseSheet = workbook.addWorksheet('Expense Outflow', {
+      views: [{ showGridLines: true }],
+    });
+
+    expenseSheet.columns = [
       { header: 'No.', key: 'no', width: 8 },
       { header: 'Date', key: 'date', width: 14 },
       { header: 'Receipt no.', key: 'receiptNo', width: 16 },
@@ -47,173 +248,121 @@ export async function GET(req: NextRequest) {
       { header: 'Description', key: 'description', width: 26 },
       { header: 'Claimant', key: 'claimant', width: 18 },
       { header: 'Department', key: 'department', width: 18 },
-      { header: 'Project / budget line', key: 'project', width: 24 },
       { header: 'Expense code', key: 'expenseCode', width: 16 },
-      { header: 'Payment method', key: 'paymentMethod', width: 16 },
       { header: 'Currency', key: 'currency', width: 10 },
-      { header: 'Rate', key: 'rate', width: 10 },
-      { header: 'Amount excl. VAT', key: 'amountExclVat', width: 18 },
-      { header: 'VAT', key: 'vat', width: 14 },
       { header: 'Total', key: 'total', width: 16 },
-      { header: 'Total (KHR equiv.)', key: 'totalBaseEquiv', width: 20 },
+      { header: isBaseUsd ? 'USD Equiv' : 'KHR Equiv', key: 'equiv', width: 18 },
       { header: 'Status', key: 'status', width: 14 },
-      { header: 'Approved by', key: 'approvedBy', width: 18 },
     ];
 
-    // 2. Style the Burgundy Header Row (Matching user's screenshot & mockup)
-    const headerRow = worksheet.getRow(1);
-    headerRow.height = 26;
-    headerRow.eachCell((cell) => {
-      cell.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FF7A222B' }, // Deep Wine Burgundy
-      };
-      cell.font = {
-        name: 'Segoe UI',
-        size: 10,
-        bold: true,
-        color: { argb: 'FFFFFFFF' },
-      };
-      cell.alignment = {
-        vertical: 'middle',
-        horizontal: 'left',
-      };
-      cell.border = {
-        top: { style: 'thin', color: { argb: 'FF5A1820' } },
-        left: { style: 'thin', color: { argb: 'FF5A1820' } },
-        bottom: { style: 'medium', color: { argb: 'FF5A1820' } },
-        right: { style: 'thin', color: { argb: 'FF5A1820' } },
-      };
+    const expHeader = expenseSheet.getRow(1);
+    expHeader.height = 26;
+    expHeader.eachCell((cell) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF7A222B' } }; // Burgundy
+      cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.alignment = { vertical: 'middle' };
     });
 
-    // Right-align numeric headers
-    [13, 14, 15, 16, 17].forEach((colIdx) => {
-      headerRow.getCell(colIdx).alignment = { vertical: 'middle', horizontal: 'right' };
-    });
+    receipts.forEach((r: any, idx: number) => {
+      const equiv = isBaseUsd
+        ? (r.currency === 'USD' ? r.total : r.total / rate)
+        : (r.currency === 'KHR' ? r.total : r.total * rate);
 
-    // 3. Add Data Rows
-    let currentRowNum = 2;
-    receipts.forEach((r, idx) => {
-      const row = worksheet.addRow({
+      const row = expenseSheet.addRow({
         no: idx + 1,
         date: r.date,
         receiptNo: r.receiptNo || '—',
         payee: r.payee,
         vendorTin: r.vendorTin || '—',
         description: r.description || '—',
-        claimant: r.claimant?.name || '—',
+        claimant: r.submittedBy || r.claimant?.name || '—',
         department: r.department || '—',
-        project: r.project || '—',
         expenseCode: r.expenseCode || '—',
-        paymentMethod: r.paymentMethod || '—',
         currency: r.currency,
-        rate: r.rate,
-        amountExclVat: r.amountExclVat,
-        vat: r.vat,
         total: r.total,
-        totalBaseEquiv: r.totalBaseEquiv,
+        equiv,
         status: r.status,
-        approvedBy: r.approvedBy?.name || (r.status === 'APPROVED' ? (session.name || 'Workspace Approver') : '—'),
       });
 
-      row.height = 22;
-
-      // Zebra striping & cell formatting
-      const isEven = idx % 2 === 0;
-      row.eachCell((cell, colNumber) => {
+      row.height = 20;
+      row.eachCell((cell, colNum) => {
         cell.font = { name: 'Segoe UI', size: 9.5 };
-        cell.alignment = { vertical: 'middle' };
-        cell.border = {
-          bottom: { style: 'thin', color: { argb: 'FFEFE8DE' } },
-          right: { style: 'thin', color: { argb: 'FFF5EFE6' } },
-        };
-
-        if (isEven) {
-          cell.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FFFDFBF8' },
-          };
-        }
-
-        // Numeric column formats
-        if (colNumber === 13) {
-          cell.numFmt = '#,##0';
+        if (colNum === 11 || colNum === 12) {
+          cell.numFmt = (colNum === 11 && r.currency === 'USD') || (colNum === 12 && isBaseUsd) ? '$#,##0.00' : '#,##0';
           cell.alignment = { vertical: 'middle', horizontal: 'right' };
-        } else if (colNumber === 14 || colNumber === 15) {
-          cell.numFmt = r.currency === 'USD' ? '$#,##0.00' : '#,##0';
-          cell.alignment = { vertical: 'middle', horizontal: 'right' };
-        } else if (colNumber === 16) {
-          cell.numFmt = r.currency === 'USD' ? '$#,##0.00' : '#,##0';
-          cell.alignment = { vertical: 'middle', horizontal: 'right' };
-          cell.font = { bold: true, color: { argb: 'FF1A73E8' } };
-        } else if (colNumber === 17) {
-          cell.numFmt = '#,##0';
-          cell.alignment = { vertical: 'middle', horizontal: 'right' };
-          cell.font = { bold: true, color: { argb: 'FF137333' } };
-        } else if (colNumber === 18) {
-          // Status color
-          if (r.status === 'APPROVED') {
-            cell.font = { bold: true, color: { argb: 'FF137333' } };
-          } else if (r.status === 'REIMBURSED') {
-            cell.font = { bold: true, color: { argb: 'FF1A73E8' } };
-          } else {
-            cell.font = { bold: true, color: { argb: 'FFD97706' } };
-          }
         }
       });
-
-      currentRowNum++;
     });
 
-    // 4. Add Summary Footer Row with Real Excel SUM Formula
-    const lastDataRow = currentRowNum - 1;
-    const summaryRow = worksheet.addRow({});
-    summaryRow.height = 26;
+    // ----------------------------------------------------
+    // WORKSHEET 3: CLIENT INFLOWS & REVENUE
+    // ----------------------------------------------------
+    const incomeSheet = workbook.addWorksheet('Income Inflow', {
+      views: [{ showGridLines: true }],
+    });
 
-    // Merge columns 1 to 16 for "Total (KHR equivalent)" label
-    worksheet.mergeCells(`A${currentRowNum}:P${currentRowNum}`);
-    const summaryLabel = worksheet.getCell(`A${currentRowNum}`);
-    summaryLabel.value = 'Total (KHR equivalent)';
-    summaryLabel.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF1F1916' } };
-    summaryLabel.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
-    summaryLabel.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFF5EFE6' },
-    };
+    incomeSheet.columns = [
+      { header: 'No.', key: 'no', width: 8 },
+      { header: 'Date', key: 'date', width: 14 },
+      { header: 'Invoice #', key: 'invoiceNo', width: 16 },
+      { header: 'Client / Payer', key: 'clientName', width: 28 },
+      { header: 'Category', key: 'category', width: 20 },
+      { header: 'Payment Method', key: 'paymentMethod', width: 20 },
+      { header: 'Reference', key: 'reference', width: 24 },
+      { header: 'Currency', key: 'currency', width: 10 },
+      { header: 'Total Inflow', key: 'total', width: 18 },
+      { header: isBaseUsd ? 'USD Equiv' : 'KHR Equiv', key: 'equiv', width: 18 },
+      { header: 'Status', key: 'status', width: 14 },
+    ];
 
-    // Total KHR Equivalent SUM formula cell (Column Q is 17)
-    const sumCell = worksheet.getCell(`Q${currentRowNum}`);
-    sumCell.value = { formula: `SUM(Q2:Q${lastDataRow})` };
-    sumCell.numFmt = '#,##0 "KHR"';
-    sumCell.font = { name: 'Segoe UI', size: 11, bold: true, color: { argb: 'FF137333' } };
-    sumCell.alignment = { vertical: 'middle', horizontal: 'right' };
-    sumCell.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFF5EFE6' },
-    };
+    const incHeader = incomeSheet.getRow(1);
+    incHeader.height = 26;
+    incHeader.eachCell((cell) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF15803D' } }; // Forest Green
+      cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.alignment = { vertical: 'middle' };
+    });
 
-    // Remaining empty cells styled with background
-    ['R', 'S'].forEach((colLetter) => {
-      const c = worksheet.getCell(`${colLetter}${currentRowNum}`);
-      c.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FFF5EFE6' },
-      };
+    incomes.forEach((inc: any, idx: number) => {
+      const equiv = isBaseUsd
+        ? (inc.currency === 'USD' ? inc.total : inc.total / rate)
+        : (inc.currency === 'KHR' ? inc.total : inc.total * rate);
+
+      const row = incomeSheet.addRow({
+        no: idx + 1,
+        date: inc.date || inc.createdAt.toISOString().substring(0, 10),
+        invoiceNo: inc.invoiceNo || '—',
+        clientName: inc.clientName,
+        category: inc.category || 'General',
+        paymentMethod: inc.paymentMethod || '—',
+        reference: inc.reference || '—',
+        currency: inc.currency,
+        total: inc.total,
+        equiv,
+        status: inc.status,
+      });
+
+      row.height = 20;
+      row.eachCell((cell, colNum) => {
+        cell.font = { name: 'Segoe UI', size: 9.5 };
+        if (colNum === 9 || colNum === 10) {
+          cell.numFmt = (colNum === 9 && inc.currency === 'USD') || (colNum === 10 && isBaseUsd) ? '$#,##0.00' : '#,##0';
+          cell.alignment = { vertical: 'middle', horizontal: 'right' };
+          cell.font = { bold: true, color: { argb: 'FF16A34A' } };
+        }
+      });
     });
 
     // 5. Generate Buffer and Return as Downloadable Stream
     const buffer = await workbook.xlsx.writeBuffer();
 
+    const fileName = `${(workspace?.name || 'Company').replace(/\s+/g, '_')}_Financial_Ledger_2026.xlsx`;
+
     return new NextResponse(buffer, {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': 'attachment; filename="Komnottra_Expense_Ledger_2026.xlsx"',
+        'Content-Disposition': `attachment; filename="${fileName}"`,
       },
     });
   } catch (error: any) {
