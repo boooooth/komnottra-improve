@@ -72,10 +72,10 @@ flowchart TD
     %% Owner Flow
     CheckRole -- Owner --> OwnerFilter{Content Type?}
     OwnerFilter -- Photo --> ProcessReceipt
-    OwnerFilter -- /summary --> ExecSummary[Query AI CFO Agent -> Reply Financial Summary]
-    OwnerFilter -- /runway --> ExecRunway[Query AI CFO Agent -> Reply Runway & Burn Rate]
-    OwnerFilter -- /forecast --> ExecForecast[Query AI CFO Agent -> Reply 30-Day Forecast]
-    OwnerFilter -- Natural Question --> CFOAgent[Query AI CFO Agent with Live Approved Ledger Context]
+    OwnerFilter -- /summary --> ExecSummary[Query AI Chatbot Agent -> Reply Financial Summary]
+    OwnerFilter -- /runway --> ExecRunway[Query AI Chatbot Agent -> Reply Runway & Burn Rate]
+    OwnerFilter -- /forecast --> ExecForecast[Query AI Chatbot Agent -> Reply 30-Day Forecast]
+    OwnerFilter -- Natural Question --> ChatbotAgent[Query AI Chatbot Agent with Live Approved Ledger Context]
 ```
 
 ---

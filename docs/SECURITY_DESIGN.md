@@ -44,7 +44,7 @@ Two hierarchical roles are enforced:
    - Can approve, batch-approve, or reject expense claims and client incomes.
    - Can modify workspace settings, exchange rates, and expense categories.
    - Can view company cashflow statements, monthly burn rate, and projected cash runway.
-   - Authorized for two-way interactive AI CFO queries on Telegram.
+   - Authorized for two-way interactive AI Chatbot queries on Telegram.
 2. **`MEMBER` (Staff / Submitter):**
    - Restricted to submitting expense receipts and client invoices.
    - Blocked from accessing the Approvals tab, Analytics tab, or workspace configuration.
@@ -152,14 +152,14 @@ Because Telegram interactions occur outside the browser's cookie context, author
    │   FULL ACCESS   │                   │ RESTRICTED ONLY │
    │ • Photo Uploads │                   │ • Photo Uploads │
    │ • All Alerts    │                   │ • [Exp]/[Inc]   │
-   │ • AI CFO Chat   │                   │ • NO CFO Q&A    │
+   │ • AI Chatbot    │                   │ • NO Chatbot Q&A│
    │ • /summary      │                   │ • NO Summaries  │
    │ • /runway       │                   │ • NO Alerts     │
    └─────────────────┘                   └─────────────────┘
 ```
 
 1. **Information Barrier:** If a registered team member attempts to send `/summary`, `/runway`, or asks questions like *"How much cash do we have?"*, the bot immediately replies:
-   > `🔒 Staff Access Only — You are authorized for receipt and invoice submissions only. Financial analytics and CFO queries are reserved for Workspace Owners.`
+   > `Staff Access Only — You are authorized for receipt and invoice submissions only. Financial analytics and chatbot queries are reserved for Workspace Owners.`
 2. **Alert Protection:** High-spend expense alerts are addressed exclusively to IDs listed under `telegramChatId` (owners). Staff members never receive expenditure alerts.
 
 ---

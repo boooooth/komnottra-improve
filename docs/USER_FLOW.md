@@ -4,11 +4,11 @@
 
 Komnottra operates on a multi-tenant, role-governed paradigm tailored for Cambodian business operations, accounting compliance, and dual-currency management (USD / KHR). Two primary personas interact with the system:
 
-1. **Workspace Owner (Executive / CFO / Finance Lead):**
+1. **Workspace Owner (Executive / Admin / Finance Lead):**
    - Full authority over company financial configuration, exchange rates, and budgets.
    - Authority to approve, reject, or edit pending expense claims and client income records.
    - Access to confidential business intelligence: burn rate, projected runway, cashflow statements, and audit ledgers.
-   - Interactive conversational CFO bot access in Telegram with real-time push alerts for high-value expenditures.
+   - Interactive conversational bot access in Telegram with real-time push alerts for high-value expenditures.
 
 2. **Team Member (Staff / Field Employee):**
    - Restricted operational scope: receipt scanning and invoice submission.

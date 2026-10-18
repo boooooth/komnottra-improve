@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { sendTelegramMessage, askWorkspaceCfoAgent, notifyWorkspaceAlert } from '@/lib/telegram';
+import { sendTelegramMessage, askWorkspaceAgent, notifyWorkspaceAlert } from '@/lib/telegram';
 import { extractReceiptWithGemini } from '@/lib/gemini';
 import fs from 'fs';
 import path from 'path';
@@ -216,7 +216,7 @@ export async function POST(req: NextRequest) {
             chatId,
             `<b>Welcome, Owner of ${workspace.name}!</b>\n\n` +
               `Your Telegram Chat ID: <code>${chatId}</code>\n` +
-              `Role: <b>Executive Owner (Full CFO & Alerts Access)</b>\n\n` +
+              `Role: <b>Executive Owner (Full Access & Alerts)</b>\n\n` +
               `<b>Available actions:</b>\n` +
               `• Snap receipt/invoice photos to send directly for review\n` +
               `• Ask financial questions (e.g. <i>"What's our burn rate?"</i>, <i>"/summary"</i>, <i>"/runway"</i>)\n` +
@@ -240,7 +240,7 @@ export async function POST(req: NextRequest) {
             chatId,
             `<b>Welcome to Komnottra Bot!</b>\n\n` +
               `Your Telegram Chat ID is:\n<code>${chatId}</code>\n\n` +
-              `<i>Share this ID with your Workspace Owner. They can add you in <b>Settings -> Telegram CFO Agent & Chatbot</b> as an <b>Owner</b> (full CFO access) or as a <b>Team Member</b> (receipt submission only).</i>`
+              `<i>Share this ID with your Workspace Owner. They can add you in <b>Settings -> Telegram Bot & Chatbot</b> as an <b>Owner</b> (full access) or as a <b>Team Member</b> (receipt submission only).</i>`
           );
         }
       }
@@ -253,7 +253,7 @@ export async function POST(req: NextRequest) {
         await sendTelegramMessage(
           token,
           chatId,
-          `<b>Komnottra CFO Bot</b>\n\n` +
+          `<b>Komnottra Bot</b>\n\n` +
             `This chat is not connected to a workspace yet.\n` +
             `Your Telegram Chat ID is: <code>${chatId}</code>\n\n` +
             `<i>Share this ID with your Workspace Owner to link your account.</i>`
@@ -403,7 +403,7 @@ export async function POST(req: NextRequest) {
           `<b>Komnottra Team Member Help:</b>\n\n` +
             `• <b>Send any receipt or invoice photo</b> to submit for approval.\n` +
             `• Tap <b>Expense</b> or <b>Income</b> on the buttons below your upload.\n\n` +
-            `<i>Note: Company financial summaries and CFO chat queries are restricted to Workspace Owners.</i>`
+            `<i>Note: Company financial summaries and chatbot queries are restricted to Workspace Owners.</i>`
         );
         return NextResponse.json({ ok: true });
       }
@@ -413,7 +413,7 @@ export async function POST(req: NextRequest) {
         chatId,
         `<b>Staff Access Only</b>\n\n` +
           `Your Telegram ID is authorized as a <b>Team Member</b> (receipt & invoice submission only).\n\n` +
-          `Company financials, runway projections, and CFO chat queries are reserved for Workspace Owners.\n\n` +
+          `Company financials, runway projections, and chatbot queries are reserved for Workspace Owners.\n\n` +
           `<i>To submit an expense, simply snap and send a photo of your receipt!</i>`
       );
       return NextResponse.json({ ok: true });
@@ -422,7 +422,7 @@ export async function POST(req: NextRequest) {
       await sendTelegramMessage(
         token,
         chatId,
-        `<b>Komnottra CFO Bot Commands:</b>\n\n` +
+        `<b>Komnottra Bot Commands:</b>\n\n` +
           `• <b>/summary</b> - Get month-to-date cashflow summary\n` +
           `• <b>/runway</b> - Check cash runway & monthly burn\n` +
           `• <b>/forecast</b> - 30-day predictive expense projection\n` +
@@ -436,25 +436,25 @@ export async function POST(req: NextRequest) {
     }
 
     if (text === '/summary') {
-      const reply = await askWorkspaceCfoAgent(workspace.id, "Give me an executive summary of our month-to-date spend, income, and net position.");
+      const reply = await askWorkspaceAgent(workspace.id, "Give me an executive summary of our month-to-date spend, income, and net position.");
       await sendTelegramMessage(token, chatId, reply);
       return NextResponse.json({ ok: true });
     }
 
     if (text === '/runway') {
-      const reply = await askWorkspaceCfoAgent(workspace.id, "Calculate our cash runway and monthly burn rate in detail with recommendations.");
+      const reply = await askWorkspaceAgent(workspace.id, "Calculate our cash runway and monthly burn rate in detail with recommendations.");
       await sendTelegramMessage(token, chatId, reply);
       return NextResponse.json({ ok: true });
     }
 
     if (text === '/forecast') {
-      const reply = await askWorkspaceCfoAgent(workspace.id, "Predict our next 30 days expense liability based on historical burn.");
+      const reply = await askWorkspaceAgent(workspace.id, "Predict our next 30 days expense liability based on historical burn.");
       await sendTelegramMessage(token, chatId, reply);
       return NextResponse.json({ ok: true });
     }
 
-    // 5. General Natural Language Q&A with AI CFO
-    const aiAnswer = await askWorkspaceCfoAgent(workspace.id, text);
+    // 5. General Natural Language Q&A with Chatbot
+    const aiAnswer = await askWorkspaceAgent(workspace.id, text);
     await sendTelegramMessage(token, chatId, aiAnswer);
 
     return NextResponse.json({ ok: true });

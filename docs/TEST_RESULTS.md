@@ -115,7 +115,7 @@ Route (app)
 1. Staff member types `/summary` or `/runway` in Telegram.
 2. Bot responds:
    > `🔒 Staff Access Only`  
-   > `Your Telegram ID is authorized as a Team Member (receipt & invoice submission only). Company financials, runway projections, and CFO chat queries are reserved for Workspace Owners.`
+   > `Your Telegram ID is authorized as a Team Member (receipt & invoice submission only). Company financials, runway projections, and chatbot queries are reserved for Workspace Owners.`
 3. **Verdict:** **PASS**. Confidential financial metrics remain restricted to Owners.
 
 ---

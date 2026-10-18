@@ -61,7 +61,7 @@ export async function testTelegramConnection(
 
     // 2. If chatId provided, send test ping (supports comma-separated list of IDs)
     if (chatId) {
-      const pingText = `<b>Komnottra CFO Bot Connected</b>\n\n` +
+      const pingText = `<b>Komnottra Bot Connected</b>\n\n` +
         `Successfully linked to workspace: <b>${workspaceName}</b>\n` +
         `You will now receive live alerts for large expenses, income, anomalies, and daily digests.\n\n` +
         `<i>You can message this bot anytime to ask about your company cashflow, spendings, or runway predictions!</i>`;
@@ -177,7 +177,7 @@ export async function notifyWorkspaceAlert(
       case 'DAILY_DIGEST': {
         if (!workspace.notifyDailyDigest) return false;
         message =
-          `<b>Morning CFO Briefing: ${workspace.name}</b>\n\n` +
+          `<b>Morning Briefing: ${workspace.name}</b>\n\n` +
           `• <b>Yesterday's Spend:</b> $${(payload.yesterdaySpend || 0).toFixed(2)}\n` +
           `• <b>Month-To-Date Inflow:</b> $${(payload.mtdIncome || 0).toFixed(2)}\n` +
           `• <b>Month-To-Date Outflow:</b> $${(payload.mtdExpense || 0).toFixed(2)}\n` +
@@ -208,7 +208,7 @@ export async function notifyWorkspaceAlert(
 /**
  * AI Conversational Agent: Handles owner questions in Telegram about their company data
  */
-export async function askWorkspaceCfoAgent(workspaceId: string, userQuery: string): Promise<string> {
+export async function askWorkspaceAgent(workspaceId: string, userQuery: string): Promise<string> {
   try {
     const workspace = await prisma.workspace.findUnique({
       where: { id: workspaceId },
@@ -278,7 +278,7 @@ export async function askWorkspaceCfoAgent(workspaceId: string, userQuery: strin
     const estimatedRunwayMonths = totalIncomeUsd > 0 ? (totalIncomeUsd / averageMonthlyBurn).toFixed(1) : 'Unknown';
 
     // 2. Prepare AI Prompt
-    const systemPrompt = `You are the executive AI Chief Financial Officer (CFO) and financial analyst for "${workspace.name}", an organization operating in Cambodia.
+    const systemPrompt = `You are the AI financial assistant for "${workspace.name}", an organization operating in Cambodia.
 You communicate directly with the company owner via Telegram.
 Respond in clear, professional, concise language with bullet points and emojis. If asked in Khmer, answer in natural polite Khmer; if asked in English, answer in English.
 
@@ -308,7 +308,7 @@ ${recentIncomesList.join('\n') || 'None recorded'}
 USER QUERY:
 "${userQuery}"
 
-Provide a direct, accurate, data-backed answer based on the real financial ledger above. If predicting, give realistic forecasts based on the numbers and suggest 1-2 actionable CFO recommendations. Keep it under 250 words so it reads cleanly on a mobile Telegram screen.`;
+Provide a direct, accurate, data-backed answer based on the real financial ledger above. If predicting, give realistic forecasts based on the numbers and suggest 1-2 actionable recommendations. Keep it under 250 words so it reads cleanly on a mobile Telegram screen.`;
 
     const geminiApiKey = process.env.GEMINI_API_KEY;
     const aiBaseUrl = process.env.AI_BASE_URL;
@@ -355,7 +355,7 @@ Provide a direct, accurate, data-backed answer based on the real financial ledge
       `• <b>Burn Rate:</b> ~$${averageMonthlyBurn.toFixed(2)}/mo\n\n` +
       `<i>Configure GEMINI_API_KEY or AI_BASE_URL for conversational natural language insights.</i>`;
   } catch (err: any) {
-    console.error('Error in askWorkspaceCfoAgent:', err);
+    console.error('Error in askWorkspaceAgent:', err);
     return `An error occurred while analyzing your workspace data: ${err.message}`;
   }
 }

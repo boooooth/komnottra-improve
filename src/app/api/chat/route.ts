@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     const session = await getCurrentUser();
     if (!session || !session.workspaceId) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized. Please sign in to access the CFO Chatbot.' },
+        { success: false, error: 'Unauthorized. Please sign in to access the Chatbot.' },
         { status: 401 }
       );
     }
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Access restricted: The AI CFO Chatbot is reserved exclusively for Workspace Owners.',
+          error: 'Access restricted: The Chatbot is reserved exclusively for Workspace Owners.',
         },
         { status: 403 }
       );
@@ -123,10 +123,10 @@ export async function POST(req: NextRequest) {
     const estimatedRunwayMonths =
       totalIncomeUsd > 0 ? (totalIncomeUsd / averageMonthlyBurn).toFixed(1) : 'Unknown';
 
-    // 2. Prepare Executive CFO System Prompt
-    const systemPrompt = `You are the executive AI Chief Financial Officer (CFO) and financial analyst for "${workspace.name}", a business operating in Cambodia.
+    // 2. Prepare Financial Assistant System Prompt
+    const systemPrompt = `You are the AI financial assistant for "${workspace.name}", a business operating in Cambodia.
 You communicate directly with the business owner through the Komnottra Web Chatbot.
-Your job is to provide accurate, data-backed financial answers, expense breakdowns, runway forecasts, and actionable CFO recommendations.
+Your job is to provide accurate, data-backed financial answers, expense breakdowns, runway forecasts, and actionable recommendations.
 
 RULES & CONSTRAINTS:
 1. Always base your numbers strictly on the APPROVED financial facts below.

@@ -414,7 +414,7 @@ export default function KomnottraApp() {
     return 'U';
   };
 
-  // AI CFO Chatbot State & Handlers
+  // Chatbot State & Handlers
   interface ChatMessageItem {
     id: string;
     role: 'user' | 'assistant';
@@ -424,9 +424,9 @@ export default function KomnottraApp() {
 
   const [chatMessages, setChatMessages] = useState<ChatMessageItem[]>([
     {
-      id: 'welcome-cfo',
+      id: 'welcome-bot',
       role: 'assistant',
-      content: `Hello! I am your **Komnottra AI CFO & Financial Advisor**.\n\nI can analyze your approved receipts, track client incomes, calculate your monthly burn rate, forecast cash runway, and break down spending by category or department.\n\nAsk me anything or tap one of the suggested prompts above!`,
+      content: `Hello! I am your **Komnottra Chatbot**.\n\nI can analyze your approved receipts, track client incomes, calculate your monthly burn rate, forecast cash runway, and break down spending by category or department.\n\nAsk me anything or tap one of the suggested prompts above!`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -482,7 +482,7 @@ export default function KomnottraApp() {
           {
             id: 'err-' + Date.now(),
             role: 'assistant',
-            content: data.error || 'Unable to connect to AI CFO at this time.',
+            content: data.error || 'Unable to connect to Chatbot at this time.',
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           },
         ]);
@@ -2652,7 +2652,7 @@ export default function KomnottraApp() {
                   if (currentUser?.role === 'OWNER') {
                     setActiveScreen('chatbot');
                   } else {
-                    alert('The AI CFO Chatbot is reserved exclusively for Company Owners and Finance Leads.');
+                    alert('The Chatbot is reserved exclusively for Company Owners.');
                   }
                   setIsMobileSidebarOpen(false);
                 }}
@@ -4915,12 +4915,12 @@ export default function KomnottraApp() {
                   </div>
                 </div>
 
-                {/* Card 5: Telegram Bot CFO Assistant Integration */}
+                {/* Card 5: Telegram Bot Assistant Integration */}
                 <div className={styles.settingsCard}>
                   <div className={styles.settingsCardHeader}>
                     <div>
                       <div className={styles.settingsCardTitle} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Bot size={18} color="#0088cc" /> Telegram CFO Agent &amp; Chatbot
+                        <Bot size={18} color="#0088cc" /> Telegram Bot &amp; Chatbot
                       </div>
                       <div className={styles.settingsCardDesc}>
                         Connect your workspace to a dedicated Telegram bot. The bot can answer questions about your spendings, predict future runway, and send real-time alerts.
@@ -4969,7 +4969,7 @@ export default function KomnottraApp() {
                         <label className={styles.settingsLabel} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <ShieldCheck size={16} color="#7A222B" />
                           <span>Owner Telegram Chat ID(s)</span>
-                          <span style={{ fontSize: '11px', color: '#7A222B', fontWeight: 600 }}>(Full CFO Access &amp; Alerts)</span>
+                          <span style={{ fontSize: '11px', color: '#7A222B', fontWeight: 600 }}>(Full Access &amp; Alerts)</span>
                         </label>
                         <input
                           type="text"
@@ -4979,7 +4979,7 @@ export default function KomnottraApp() {
                           onChange={(e) => setWorkspaceSettings({ ...workspaceSettings, telegramChatId: e.target.value })}
                         />
                         <span style={{ fontSize: '11px', color: '#8C8075' }}>
-                          Full executive access. Owners receive immediate High-Expense alerts (when receipts exceed the $ threshold) and can ask the AI CFO questions about burn rate, runway, and reports.
+                          Full executive access. Owners receive immediate High-Expense alerts (when receipts exceed the $ threshold) and can ask the chatbot questions about burn rate, runway, and reports.
                         </span>
                       </div>
 
@@ -5093,7 +5093,7 @@ export default function KomnottraApp() {
 
                     <div className={styles.notifyToggleRow}>
                       <div className={styles.notifyToggleText}>
-                        <div className={styles.notifyToggleTitle}>Daily Morning CFO Digest</div>
+                        <div className={styles.notifyToggleTitle}>Daily Morning Digest</div>
                         <div className={styles.notifyToggleDesc}>
                           Brief morning summary with yesterday spend, total cash balance, and runway status.
                         </div>
@@ -5313,7 +5313,7 @@ export default function KomnottraApp() {
                 <div className={styles.analyticsHeader}>
                   <div>
                     <div style={{ fontSize: '11px', fontWeight: 700, color: '#8C8075', letterSpacing: '0.08em', marginBottom: '4px' }}>
-                      CFO INTELLIGENCE &amp; RUNWAY PREDICTIONS
+                      FINANCIAL INTELLIGENCE &amp; RUNWAY PREDICTIONS
                     </div>
                     <h2 style={{ fontFamily: 'var(--font-primary)', fontSize: '28px', fontWeight: 800, letterSpacing: '-0.02em', color: '#1F1916', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <BarChart3 size={26} color="#7A222B" /> Financial Health &amp; Analytics
@@ -5575,14 +5575,14 @@ export default function KomnottraApp() {
               </div>
             )}
 
-            {/* SCREEN: AI CFO CHATBOT */}
+            {/* SCREEN: CHATBOT */}
             {activeScreen === 'chatbot' && (
               <div className={styles.chatbotContainer}>
                 {/* Header */}
                 <div className={styles.chatbotHeader}>
                   <div>
                     <h2 className={styles.chatbotHeaderTitle}>
-                      AI CFO Business Chatbot
+                      Chatbot
                     </h2>
                   </div>
 
@@ -5597,9 +5597,9 @@ export default function KomnottraApp() {
                       onClick={() => {
                         setChatMessages([
                           {
-                            id: 'welcome-cfo-' + Date.now(),
+                            id: 'welcome-chat-' + Date.now(),
                             role: 'assistant',
-                            content: `Hello! I am your **Komnottra AI CFO & Financial Advisor**.\n\nI can analyze your approved receipts, track client incomes, calculate your monthly burn rate, forecast cash runway, and break down spending by category or department.\n\nAsk me anything or tap one of the suggested prompts above!`,
+                            content: `Hello! I am your **Komnottra Chatbot**.\n\nI can analyze your approved receipts, track client incomes, calculate your monthly burn rate, forecast cash runway, and break down spending by category or department.\n\nAsk me anything or tap one of the suggested prompts above!`,
                             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                           },
                         ]);
@@ -5681,7 +5681,7 @@ export default function KomnottraApp() {
                                 <span className={styles.chatSenderAvatarAi}>
                                   <Sparkles size={14} />
                                 </span>
-                                <span>Komnottra AI CFO</span>
+                                <span>Komnottra Chatbot</span>
                               </>
                             ) : (
                               <>
@@ -5727,7 +5727,7 @@ export default function KomnottraApp() {
                   {isChatLoading && (
                     <div className={styles.chatLoadingBubble}>
                       <Loader2 size={16} className={styles.spinner} />
-                      <span>AI CFO is analyzing your ledger...</span>
+                      <span>Analyzing your ledger...</span>
                     </div>
                   )}
 
@@ -5771,7 +5771,7 @@ export default function KomnottraApp() {
           </main>
         </div>
 
-        {/* Floating Quick AI CFO Chatbot Trigger (Bottom Right of every page) */}
+        {/* Floating Quick Chatbot Trigger (Bottom Right of every page) */}
         {activeScreen !== 'chatbot' && (
           <button
             type="button"
@@ -5780,17 +5780,17 @@ export default function KomnottraApp() {
               if (currentUser?.role === 'OWNER') {
                 setActiveScreen('chatbot');
               } else {
-                alert('The AI CFO Chatbot is reserved exclusively for Company Owners.');
+                alert('The Chatbot is reserved exclusively for Company Owners.');
               }
             }}
-            title="Chat with AI CFO"
-            aria-label="Open AI CFO Chatbot"
+            title="Chatbot"
+            aria-label="Open Chatbot"
           >
             <div className={styles.floatingChatIconWrap}>
               <Bot size={20} color="#FFFFFF" />
               <span className={styles.floatingChatPulseDot} />
             </div>
-            <span className={styles.floatingChatLabel}>AI CFO Chat</span>
+            <span className={styles.floatingChatLabel}>Chatbot</span>
           </button>
         )}
 
