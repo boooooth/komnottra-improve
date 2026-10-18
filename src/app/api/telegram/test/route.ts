@@ -13,6 +13,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const token = body.token || body.botToken;
     const chatId = body.chatId;
+    const memberChatIds = body.memberChatIds;
 
     if (!token) {
       return NextResponse.json({ success: false, error: 'Bot token is required' }, { status: 400 });
@@ -26,8 +27,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Workspace not found' }, { status: 404 });
     }
 
-    // Test connection
-    const testResult = await testTelegramConnection(token.trim(), chatId?.trim() || '', workspace.name);
+    // Test connection with owner and/or member IDs
+    const testIdsToPing = [chatId, memberChatIds].filter(Boolean).join(', ');
+    const testResult = await testTelegramConnection(token.trim(), testIdsToPing, workspace.name);
 
     if (!testResult.success) {
       return NextResponse.json({
@@ -53,9 +55,10 @@ export async function POST(req: NextRequest) {
       where: { id: workspace.id },
       data: {
         telegramBotToken: token.trim(),
-        telegramChatId: chatId?.trim() || workspace.telegramChatId,
+        telegramChatId: chatId !== undefined ? chatId.trim() : workspace.telegramChatId,
+        telegramMemberChatIds: memberChatIds !== undefined ? memberChatIds.trim() : workspace.telegramMemberChatIds,
         telegramBotUsername: testResult.botUsername || workspace.telegramBotUsername,
-        telegramBotActive: Boolean(chatId?.trim()),
+        telegramBotActive: Boolean(chatId?.trim() || memberChatIds?.trim()),
       },
     });
 

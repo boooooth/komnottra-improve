@@ -69,6 +69,7 @@ export async function PATCH(req: NextRequest) {
 
     if (body.telegramBotToken !== undefined) dataToUpdate.telegramBotToken = body.telegramBotToken;
     if (body.telegramChatId !== undefined) dataToUpdate.telegramChatId = body.telegramChatId;
+    if (body.telegramMemberChatIds !== undefined) dataToUpdate.telegramMemberChatIds = body.telegramMemberChatIds;
     if (body.telegramBotActive !== undefined) dataToUpdate.telegramBotActive = Boolean(body.telegramBotActive);
     if (body.telegramBotUsername !== undefined) dataToUpdate.telegramBotUsername = body.telegramBotUsername;
 

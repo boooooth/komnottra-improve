@@ -40,10 +40,11 @@ model Workspace {
   projects        String            @default("[\"GA-2026 General admin\", \"TRN-09 Staff training\", \"BD-2026 Business dev\"]")
 
   // Telegram Bot Integration
-  telegramBotToken    String?
-  telegramChatId      String?
-  telegramBotActive   Boolean           @default(false)
-  telegramBotUsername String?
+  telegramBotToken      String?
+  telegramChatId        String? // Owner Chat ID(s) - Full CFO Agent access and alerts
+  telegramMemberChatIds String? // Staff / Member Chat ID(s) - Receipt photo submission only
+  telegramBotActive     Boolean           @default(false)
+  telegramBotUsername   String?
 
   // Automated Notification Alert Settings
   notifyHighSpend     Boolean           @default(true)

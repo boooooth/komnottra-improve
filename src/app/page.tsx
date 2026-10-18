@@ -488,6 +488,7 @@ export default function KomnottraApp() {
     departments: string[];
     telegramBotToken?: string;
     telegramChatId?: string;
+    telegramMemberChatIds?: string;
     telegramBotActive?: boolean;
     telegramBotUsername?: string;
     notifyHighSpend?: boolean;
@@ -509,6 +510,7 @@ export default function KomnottraApp() {
     departments: ['Administration', 'Sales', 'Engineering', 'Operations'],
     telegramBotToken: '',
     telegramChatId: '',
+    telegramMemberChatIds: '',
     telegramBotActive: false,
     telegramBotUsername: '',
     notifyHighSpend: true,
@@ -729,6 +731,7 @@ export default function KomnottraApp() {
           token: workspaceSettings.telegramBotToken,
           botToken: workspaceSettings.telegramBotToken,
           chatId: workspaceSettings.telegramChatId,
+          memberChatIds: workspaceSettings.telegramMemberChatIds,
         }),
       });
       const data = await res.json();
@@ -779,6 +782,7 @@ export default function KomnottraApp() {
           departments: loadedDepts,
           telegramBotToken: data.workspace.telegramBotToken || '',
           telegramChatId: data.workspace.telegramChatId || '',
+          telegramMemberChatIds: data.workspace.telegramMemberChatIds || '',
           telegramBotActive: Boolean(data.workspace.telegramBotActive),
           telegramBotUsername: data.workspace.telegramBotUsername || '',
           notifyHighSpend: data.workspace.notifyHighSpend ?? true,
@@ -1076,7 +1080,8 @@ export default function KomnottraApp() {
   useEffect(() => {
     if (activeScreen === 'analytics') {
       fetchAnalytics();
-    } else if (activeScreen === 'income') {
+    } else if (activeScreen === 'approvals') {
+      fetchLiveReceipts();
       fetchIncomes();
     }
   }, [activeScreen]);
@@ -2551,18 +2556,6 @@ export default function KomnottraApp() {
                 </div>
               </div>
               <div
-                className={`${styles.navMenuItem} ${activeScreen === 'income' ? styles.navMenuItemActive : ''}`}
-                onClick={() => {
-                  setActiveScreen('income');
-                  fetchIncomes();
-                  setIsMobileSidebarOpen(false);
-                }}
-              >
-                <div className={styles.navItemLeft}>
-                  <DollarSign size={16} /> Income &amp; Inflows
-                </div>
-              </div>
-              <div
                 className={`${styles.navMenuItem} ${activeScreen === 'approvals' ? styles.navMenuItemActive : ''}`}
                 onClick={() => {
                   if (currentUser?.role === 'OWNER') {
@@ -3937,8 +3930,26 @@ export default function KomnottraApp() {
                     </div>
                   </div>
 
-                  {currentUser?.role === 'OWNER' && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className={styles.btnScanMore}
+                      onClick={() => setIsIncomeModalOpen(true)}
+                      style={{
+                        padding: '10px 18px',
+                        fontSize: '13px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        background: '#ECFDF5',
+                        borderColor: '#A7F3D0',
+                        color: '#065F46',
+                        fontWeight: 700,
+                      }}
+                    >
+                      <Plus size={16} /> Record Income / Bill
+                    </button>
+                    {currentUser?.role === 'OWNER' && (
                       <button
                         type="button"
                         className={styles.btnApproveReport}
@@ -3957,8 +3968,8 @@ export default function KomnottraApp() {
                         {isBatchApproving ? <Loader2 size={16} className={styles.spinningIcon} /> : <CheckCheck size={16} />}
                         Approve All Submissions ({approvalQueue.length})
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
 
                 {/* Sub-tabs for Approval Queue: All / Expenses / Incomes */}
@@ -4077,10 +4088,24 @@ export default function KomnottraApp() {
                     {approvalQueue.filter(i => approvalTab === 'ALL' || i.itemType === approvalTab).length === 0 ? (
                       <div style={{ padding: '36px 16px', textAlign: 'center', color: '#137333', fontWeight: 700, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                         <CheckCircle2 size={24} color="#15803D" />
-                        <div style={{ fontSize: '15px', color: '#1F1916' }}>All approvals completed!</div>
-                        <div style={{ fontSize: '12px', color: '#8C8075', fontWeight: 500 }}>
-                          No pending submissions matching this filter. New Telegram receipts or client invoices will appear here.
+                        <div style={{ fontSize: '15px', color: '#1F1916' }}>
+                          {approvalTab === 'INCOME' ? 'No pending client incomes' : 'All approvals completed!'}
                         </div>
+                        <div style={{ fontSize: '12px', color: '#8C8075', fontWeight: 500, maxWidth: '360px' }}>
+                          {approvalTab === 'INCOME'
+                            ? 'All recorded revenues and client invoices have been approved. Click "+ Record Income / Bill" above to add a new client payment.'
+                            : 'No pending submissions matching this filter. New Telegram receipts or client invoices will appear here.'}
+                        </div>
+                        {approvalTab === 'INCOME' && (
+                          <button
+                            type="button"
+                            className={styles.btnApproveReport}
+                            onClick={() => setIsIncomeModalOpen(true)}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}
+                          >
+                            <Plus size={15} /> Record Income / Bill
+                          </button>
+                        )}
                       </div>
                     ) : (
                       approvalQueue
@@ -4859,16 +4884,34 @@ export default function KomnottraApp() {
                       </div>
 
                       <div className={styles.settingsFormGroup}>
-                        <label className={styles.settingsLabel}>Authorized Telegram Chat ID(s)</label>
+                        <label className={styles.settingsLabel} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          👑 Owner Telegram Chat ID(s) <span style={{ fontSize: '11px', color: '#7A222B', fontWeight: 600 }}>(Full CFO Access &amp; Alerts)</span>
+                        </label>
                         <input
                           type="text"
                           className={styles.warmInput}
-                          placeholder="e.g. 123456789, 987654321 or Group ID -100123456789"
+                          placeholder="e.g. 123456789 or 123456789, 987654321"
                           value={workspaceSettings.telegramChatId || ''}
                           onChange={(e) => setWorkspaceSettings({ ...workspaceSettings, telegramChatId: e.target.value })}
                         />
                         <span style={{ fontSize: '11px', color: '#8C8075' }}>
-                          Enter one or more Telegram IDs separated by commas (e.g. <code>123456, 789012</code>) or a Group ID (e.g. <code>-100...</code>). Any ID added here will receive real-time alerts and can chat with the bot.
+                          Full executive access. Owners receive immediate High-Expense alerts (when receipts exceed the $ threshold) and can ask the AI CFO questions about burn rate, runway, and reports.
+                        </span>
+                      </div>
+
+                      <div className={styles.settingsFormGroup}>
+                        <label className={styles.settingsLabel} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          👤 Staff / Member Telegram Chat ID(s) <span style={{ fontSize: '11px', color: '#0369A1', fontWeight: 600 }}>(Submissions Only)</span>
+                        </label>
+                        <input
+                          type="text"
+                          className={styles.warmInput}
+                          placeholder="e.g. 556677889, 112233445 or Staff Group -100123456789"
+                          value={workspaceSettings.telegramMemberChatIds || ''}
+                          onChange={(e) => setWorkspaceSettings({ ...workspaceSettings, telegramMemberChatIds: e.target.value })}
+                        />
+                        <span style={{ fontSize: '11px', color: '#8C8075' }}>
+                          Restricted access. Staff members can <b>ONLY</b> send receipt/invoice photos and tap the 2 buttons (Expense or Income). They cannot query financial metrics or view company runway.
                         </span>
                       </div>
                     </div>
@@ -4882,7 +4925,7 @@ export default function KomnottraApp() {
                         style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                       >
                         {isTestingTelegram ? <Loader2 size={14} className={styles.spinner} /> : <Zap size={14} />}
-                        {isTestingTelegram ? 'Testing Connection...' : 'Test Connection & Ping Bot'}
+                        {isTestingTelegram ? 'Testing Connection...' : 'Test Connection & Ping Both IDs'}
                       </button>
                     </div>
 
@@ -4921,9 +4964,9 @@ export default function KomnottraApp() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <div className={styles.notifyToggleRow}>
                       <div className={styles.notifyToggleText}>
-                        <div className={styles.notifyToggleTitle}>High-Value Claim Alerts</div>
+                        <div className={styles.notifyToggleTitle}>High-Value Receipt Claim Alert (Immediate on Add)</div>
                         <div className={styles.notifyToggleDesc}>
-                          Push alert when a staff member uploads an expense claim exceeding the dollar threshold.
+                          Sends an immediate Telegram alert to the Owner as soon as any receipt is added (via web or Telegram) meeting or exceeding this USD threshold.
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -4946,20 +4989,6 @@ export default function KomnottraApp() {
                       </div>
                     </div>
 
-                    <div className={styles.notifyToggleRow}>
-                      <div className={styles.notifyToggleText}>
-                        <div className={styles.notifyToggleTitle}>New Income / Billing Inflow Alert</div>
-                        <div className={styles.notifyToggleDesc}>
-                          Receive notification when a client invoice or customer payment is recorded into the system.
-                        </div>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={workspaceSettings.notifyNewIncome ?? true}
-                        onChange={(e) => setWorkspaceSettings({ ...workspaceSettings, notifyNewIncome: e.target.checked })}
-                        style={{ width: '18px', height: '18px', accentColor: '#7A222B', cursor: 'pointer' }}
-                      />
-                    </div>
 
                     <div className={styles.notifyToggleRow}>
                       <div className={styles.notifyToggleText}>
@@ -5502,126 +5531,6 @@ export default function KomnottraApp() {
               </div>
             )}
 
-            {/* SCREEN: INFLOW LEDGER & BILLING */}
-            {activeScreen === 'income' && (
-              <div className={styles.incomeContainer}>
-                {/* Header */}
-                <div className={styles.incomeHeader}>
-                  <div>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#8C8075', letterSpacing: '0.08em', marginBottom: '4px' }}>
-                      REVENUE &amp; CLIENT INFLOW
-                    </div>
-                    <h2 style={{ fontFamily: 'var(--font-primary)', fontSize: '28px', fontWeight: 800, letterSpacing: '-0.02em', color: '#1F1916', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <DollarSign size={26} color="#10B981" /> Company Inflow Ledger
-                    </h2>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <button
-                      type="button"
-                      className={styles.btnApproveReport}
-                      onClick={() => setIsIncomeModalOpen(true)}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                    >
-                      <Plus size={16} /> Record Income / Bill
-                    </button>
-                  </div>
-                </div>
-
-                {/* Table */}
-                <div className={styles.incomeTableWrap}>
-                  <div style={{ padding: '16px 20px', borderBottom: '1px solid #EFE8DE', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '14px', fontWeight: 700, color: '#1F1916' }}>
-                      Incoming Payments &amp; Client Invoices ({incomes.length})
-                    </span>
-                    <button
-                      type="button"
-                      className={styles.btnScanMore}
-                      onClick={fetchIncomes}
-                      disabled={isLoadingIncomes}
-                      style={{ padding: '4px 10px', fontSize: '12px' }}
-                    >
-                      <RefreshCw size={12} className={isLoadingIncomes ? styles.spinner : ''} />
-                      Refresh
-                    </button>
-                  </div>
-
-                  {incomes.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '48px 24px', color: '#8C8075' }}>
-                      <Coins size={36} color="#A3968A" style={{ margin: '0 auto 12px auto' }} />
-                      <div style={{ fontSize: '16px', fontWeight: 700, color: '#1F1916', marginBottom: '4px' }}>
-                        No Income Records Found
-                      </div>
-                      <div style={{ fontSize: '13px', maxWidth: '400px', margin: '0 auto 16px auto' }}>
-                        Track customer payments, client retainer invoices, and company inflow alongside expenses to calculate your live cash runway.
-                      </div>
-                      <button
-                        type="button"
-                        className={styles.btnApproveReport}
-                        onClick={() => setIsIncomeModalOpen(true)}
-                        style={{ margin: '0 auto' }}
-                      >
-                        <Plus size={16} /> Record First Income
-                      </button>
-                    </div>
-                  ) : (
-                    <div style={{ overflowX: 'auto' }}>
-                      <table className={styles.reportTable}>
-                        <thead>
-                          <tr>
-                            <th>Date</th>
-                            <th>Client / Payer</th>
-                            <th>Invoice #</th>
-                            <th>Category</th>
-                            <th>Method</th>
-                            <th>Status</th>
-                            <th style={{ textAlign: 'right' }}>Amount</th>
-                            <th style={{ textAlign: 'center' }}>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {incomes.map((inc) => (
-                            <tr key={inc.id}>
-                              <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{inc.date || inc.createdAt?.substring(0, 10)}</td>
-                              <td style={{ fontWeight: 700, color: '#1F1916' }}>{inc.clientName}</td>
-                              <td style={{ fontFamily: 'monospace', fontSize: '12px' }}>{inc.invoiceNo || '—'}</td>
-                              <td>
-                                <span style={{ fontSize: '12px', background: '#F3E8FF', color: '#6B21A8', padding: '3px 8px', borderRadius: '6px', fontWeight: 600 }}>
-                                  {inc.category || 'General'}
-                                </span>
-                              </td>
-                              <td style={{ fontSize: '12px', color: '#5C5248' }}>{inc.paymentMethod || 'Bank Transfer'}</td>
-                              <td>
-                                <span className={`${styles.incomeBadgeStatus} ${
-                                  inc.status === 'RECEIVED' ? styles.incomeBadgeReceived :
-                                  inc.status === 'OVERDUE' ? styles.incomeBadgeOverdue :
-                                  styles.incomeBadgePending
-                                }`}>
-                                  {inc.status || 'RECEIVED'}
-                                </span>
-                              </td>
-                              <td style={{ textAlign: 'right', fontWeight: 800, color: '#10B981', fontSize: '14px' }}>
-                                {inc.currency === 'USD' ? `$${Number(inc.total).toLocaleString()}` : `៛${Number(inc.total).toLocaleString()}`}
-                              </td>
-                              <td style={{ textAlign: 'center' }}>
-                                <button
-                                  type="button"
-                                  className={styles.btnDangerSm}
-                                  onClick={() => handleDeleteIncome(inc.id)}
-                                  title="Delete Record"
-                                >
-                                  <Trash2 size={13} />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </main>
         </div>
 

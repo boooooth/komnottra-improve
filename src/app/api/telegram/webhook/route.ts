@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { sendTelegramMessage, askWorkspaceCfoAgent } from '@/lib/telegram';
+import { sendTelegramMessage, askWorkspaceCfoAgent, notifyWorkspaceAlert } from '@/lib/telegram';
 import { extractReceiptWithGemini } from '@/lib/gemini';
 import fs from 'fs';
 import path from 'path';
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
               vat: r.vat,
               total: r.total,
               totalBaseEquiv: r.totalBaseEquiv,
-              status: 'RECEIVED',
+              status: 'PENDING',
               submittedBy: r.submittedBy,
             },
           });
@@ -88,12 +88,12 @@ export async function POST(req: NextRequest) {
                 chat_id: cqChatId,
                 message_id: messageId,
                 parse_mode: 'HTML',
-                text: `💵 <b>Recorded as Company Inflow / Income!</b>\n\n` +
+                text: `💵 <b>Recorded as Company Inflow (Pending Review)!</b>\n\n` +
                   `• <b>Client/Source:</b> ${r.payee}\n` +
                   `• <b>Amount:</b> ${r.total} ${r.currency}\n` +
                   `• <b>Date:</b> ${r.date}\n` +
                   `• <b>Submitted By:</b> ${r.submittedBy || 'Telegram User'}\n\n` +
-                  `<i>Successfully moved to ${ws.name} Incomes & Inflows.</i>`,
+                  `<i>Sent to Approvals tab for owner review. No alert sent.</i>`,
               }),
             });
           }
@@ -143,15 +143,23 @@ export async function POST(req: NextRequest) {
       ? [fromUser.first_name, fromUser.last_name].filter(Boolean).join(' ') + (fromUser.username ? ` (@${fromUser.username})` : '')
       : 'Telegram User';
 
-    // 1. Try to find workspace by telegramChatId (single ID or list of IDs)
+    // 1. Try to find workspace by owner telegramChatId OR member telegramMemberChatIds
     let workspace = await prisma.workspace.findFirst({
       where: {
         OR: [
           { telegramChatId: chatId },
           { telegramChatId: { contains: chatId } },
+          { telegramMemberChatIds: chatId },
+          { telegramMemberChatIds: { contains: chatId } },
         ],
       },
     });
+
+    const ownerIds = (workspace?.telegramChatId || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+    const memberIds = (workspace?.telegramMemberChatIds || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+
+    const isOwner = ownerIds.includes(chatId);
+    const isMember = memberIds.includes(chatId);
 
     // 2. Handle /start and /myid commands
     if (text.startsWith('/start') || text === '/myid') {
@@ -165,7 +173,7 @@ export async function POST(req: NextRequest) {
         });
 
         if (found) {
-          const existingIds = (found.telegramChatId || '')
+          const existingIds = (found.telegramMemberChatIds || '')
             .split(',')
             .map((s: string) => s.trim())
             .filter(Boolean);
@@ -176,7 +184,7 @@ export async function POST(req: NextRequest) {
           workspace = await prisma.workspace.update({
             where: { id: found.id },
             data: {
-              telegramChatId: existingIds.join(', '),
+              telegramMemberChatIds: existingIds.join(', '),
               telegramBotActive: true,
             },
           });
@@ -185,25 +193,37 @@ export async function POST(req: NextRequest) {
 
       const token = workspace?.telegramBotToken || process.env.TELEGRAM_BOT_TOKEN;
       if (token) {
-        if (workspace) {
+        if (workspace && isOwner) {
           await sendTelegramMessage(
             token,
             chatId,
-            `🎉 <b>Connected to ${workspace.name}!</b>\n\n` +
-              `Your Telegram Chat ID: <code>${chatId}</code>\n\n` +
+            `👑 <b>Welcome, Owner of ${workspace.name}!</b>\n\n` +
+              `Your Telegram Chat ID: <code>${chatId}</code>\n` +
+              `Role: 👑 <b>Executive Owner (Full CFO & Alerts Access)</b>\n\n` +
               `<b>Available actions:</b>\n` +
-              `• 📸 <b>Send any receipt or bill photo</b> to submit for approval\n` +
-              `• 💬 <b>Ask financial questions</b> (e.g. <i>"What's our burn rate?"</i>, <i>"/summary"</i>, <i>"/runway"</i>)\n` +
-              `• 🚨 Receive real-time alerts for expenses and income\n\n` +
+              `• 📸 Snap receipt/invoice photos to send directly for review\n` +
+              `• 💬 Ask financial questions (e.g. <i>"What's our burn rate?"</i>, <i>"/summary"</i>, <i>"/runway"</i>)\n` +
+              `• 🚨 Receive real-time alerts whenever a receipt is added exceeding $${workspace.notifyHighSpendMin}\n\n` +
               `Type /help anytime to see available commands.`
+          );
+        } else if (workspace && isMember) {
+          await sendTelegramMessage(
+            token,
+            chatId,
+            `👋 <b>Welcome to ${workspace.name}!</b>\n\n` +
+              `Your Telegram Chat ID: <code>${chatId}</code>\n` +
+              `Role: 👤 <b>Team Member (Submissions Only)</b>\n\n` +
+              `<b>How to submit an expense or income:</b>\n` +
+              `📸 Simply snap and send a clear photo of any receipt, bill, or invoice.\n` +
+              `You will be prompted to select <b>Spending (Expense)</b> or <b>Income</b>, and it will be sent to the Approvals tab for owner review!`
           );
         } else {
           await sendTelegramMessage(
             token,
             chatId,
-            `👋 <b>Welcome to Komnottra CFO Bot!</b>\n\n` +
+            `👋 <b>Welcome to Komnottra Bot!</b>\n\n` +
               `Your Telegram Chat ID is:\n<code>${chatId}</code>\n\n` +
-              `<i>To connect this bot to your workspace, copy this Chat ID and paste it into your Komnottra Web Dashboard under <b>Settings ➔ Telegram Integration</b>.</i>`
+              `<i>Share this ID with your Workspace Owner. They can add you in <b>Settings ➔ Telegram CFO Agent & Chatbot</b> as an <b>Owner</b> (full CFO access) or as a <b>Team Member</b> (receipt submission only).</i>`
           );
         }
       }
@@ -219,7 +239,7 @@ export async function POST(req: NextRequest) {
           `👋 <b>Komnottra CFO Bot</b>\n\n` +
             `This chat is not connected to a workspace yet.\n` +
             `Your Telegram Chat ID is: <code>${chatId}</code>\n\n` +
-            `<i>Paste this ID in your Komnottra Settings to connect.</i>`
+            `<i>Share this ID with your Workspace Owner to link your account.</i>`
         );
       }
       return NextResponse.json({ ok: true });
@@ -299,7 +319,7 @@ export async function POST(req: NextRequest) {
               data: {
                 workspaceId: workspace.id,
                 claimantId: claimantUser.id,
-                submittedBy: `Telegram: ${telegramSenderName}`,
+                submittedBy: isOwner ? `Owner: ${telegramSenderName}` : `Staff: ${telegramSenderName}`,
                 date: parsed.date,
                 receiptNo: parsed.receiptNo || `TG-${Date.now().toString().slice(-4)}`,
                 payee: parsed.vendor || 'Merchant',
@@ -319,6 +339,20 @@ export async function POST(req: NextRequest) {
                 rawExtractedJson: JSON.stringify(parsed),
               },
             });
+
+            // Immediately Alert the Workspace Owner via Telegram if spend meets/exceeds threshold
+            const usdVal = isUsd ? parsed.total : parsed.total / activeRate;
+            if (usdVal >= (workspace.notifyHighSpendMin || 100) && workspace.notifyHighSpend) {
+              notifyWorkspaceAlert(workspace.id, 'HIGH_SPEND', {
+                payee: parsed.vendor || 'Merchant',
+                amountUsd: usdVal,
+                totalFormatted: isUsd ? `$${parsed.total.toFixed(2)}` : `${parsed.total.toLocaleString()} ៛`,
+                claimantName: telegramSenderName,
+                category: parsed.category || 'General',
+                department: parsed.department || 'General',
+                date: parsed.date,
+              }).catch((e) => console.error('Telegram receipt alert error:', e));
+            }
 
             // Reply with receipt details and interactive inline buttons for Expense vs Income
             await sendTelegramMessage(
@@ -358,6 +392,30 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. Handle Text Commands & AI Natural Q&A
+    // Enforce Staff Member restriction: Members can ONLY submit photos and click inline buttons!
+    if (!isOwner && isMember) {
+      if (text === '/help') {
+        await sendTelegramMessage(
+          token,
+          chatId,
+          `🤖 <b>Komnottra Team Member Help:</b>\n\n` +
+            `• 📸 <b>Send any receipt or invoice photo</b> to submit for approval.\n` +
+            `• Tap <b>Expense</b> or <b>Income</b> on the buttons below your upload.\n\n` +
+            `<i>Note: Company financial summaries and CFO chat queries are restricted to Workspace Owners.</i>`
+        );
+        return NextResponse.json({ ok: true });
+      }
+
+      await sendTelegramMessage(
+        token,
+        chatId,
+        `🔒 <b>Staff Access Only</b>\n\n` +
+          `Your Telegram ID is authorized as a <b>Team Member</b> (receipt & invoice submission only).\n\n` +
+          `Company financials, runway projections, and CFO chat queries are reserved for Workspace Owners.\n\n` +
+          `<i>📸 To submit an expense, simply snap and send a photo of your receipt!</i>`
+      );
+      return NextResponse.json({ ok: true });
+    }
     if (text === '/help') {
       await sendTelegramMessage(
         token,

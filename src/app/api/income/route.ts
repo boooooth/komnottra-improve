@@ -122,17 +122,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Fire Telegram Alert in background
-    notifyWorkspaceAlert(session.workspaceId, 'NEW_INCOME', {
-      clientName,
-      total: numTotal,
-      currency: isUsd ? 'USD' : 'KHR',
-      totalFormatted: isUsd ? `$${numTotal.toFixed(2)}` : `${numTotal.toLocaleString()} ៛`,
-      category: category || 'Client Services',
-      paymentMethod: paymentMethod || 'ABA Bank Transfer',
-      invoiceNo: invoiceNo || '—',
-    }).catch((err) => console.error('Telegram income alert failed:', err));
-
+    // Income goes directly into Approvals queue without sending an alert
     return NextResponse.json({
       success: true,
       income: newIncome,
