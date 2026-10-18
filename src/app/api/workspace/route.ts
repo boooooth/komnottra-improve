@@ -67,6 +67,19 @@ export async function PATCH(req: NextRequest) {
     if (body.expenseCodes !== undefined) dataToUpdate.expenseCodes = JSON.stringify(body.expenseCodes);
     if (body.projects !== undefined) dataToUpdate.projects = JSON.stringify(body.projects);
 
+    if (body.telegramBotToken !== undefined) dataToUpdate.telegramBotToken = body.telegramBotToken;
+    if (body.telegramChatId !== undefined) dataToUpdate.telegramChatId = body.telegramChatId;
+    if (body.telegramBotActive !== undefined) dataToUpdate.telegramBotActive = Boolean(body.telegramBotActive);
+    if (body.telegramBotUsername !== undefined) dataToUpdate.telegramBotUsername = body.telegramBotUsername;
+
+    if (body.notifyHighSpend !== undefined) dataToUpdate.notifyHighSpend = Boolean(body.notifyHighSpend);
+    if (body.notifyHighSpendMin !== undefined) dataToUpdate.notifyHighSpendMin = parseFloat(body.notifyHighSpendMin) || 100.0;
+    if (body.notifyDailyDigest !== undefined) dataToUpdate.notifyDailyDigest = Boolean(body.notifyDailyDigest);
+    if (body.notifyNewIncome !== undefined) dataToUpdate.notifyNewIncome = Boolean(body.notifyNewIncome);
+    if (body.notifyAnomalies !== undefined) dataToUpdate.notifyAnomalies = Boolean(body.notifyAnomalies);
+    if (body.notifyBudgetAlert !== undefined) dataToUpdate.notifyBudgetAlert = Boolean(body.notifyBudgetAlert);
+    if (body.monthlyBudgetUsd !== undefined) dataToUpdate.monthlyBudgetUsd = parseFloat(body.monthlyBudgetUsd) || 5000.0;
+
     const updated = await prisma.workspace.update({
       where: { id: workspace.id },
       data: dataToUpdate,

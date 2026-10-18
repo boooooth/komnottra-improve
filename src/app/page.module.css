@@ -4627,6 +4627,239 @@
   to { opacity: 1; }
 }
 
+/* Analytics & Runway Board */
+.analyticsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding-bottom: 40px;
+  animation: fadeIn 0.25s ease;
+}
 
+.analyticsHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
 
+.analyticsMetricsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
 
+.analyticsCard {
+  background: #FFFFFF;
+  border: 1px solid #EFE8DE;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(44, 34, 30, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+}
+
+.analyticsCardTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: #8C8075;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.analyticsCardValue {
+  font-size: 32px;
+  font-weight: 800;
+  color: #1F1916;
+  letter-spacing: -0.02em;
+}
+
+.analyticsCardSub {
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.analyticsTwoCol {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 900px) {
+  .analyticsTwoCol {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Inflow vs Outflow Visual Bars */
+.timelineChartWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.timelineRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.timelineLabel {
+  width: 75px;
+  font-weight: 700;
+  color: #5C5248;
+}
+
+.timelineBarWrap {
+  flex: 1;
+  height: 22px;
+  background: #F4EFEB;
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  position: relative;
+}
+
+.timelineBarIncome {
+  background: #10B981;
+  height: 100%;
+  border-radius: 6px 0 0 6px;
+  transition: width 0.3s ease;
+}
+
+.timelineBarExpense {
+  background: #EF4444;
+  height: 100%;
+  border-radius: 0 6px 6px 0;
+  transition: width 0.3s ease;
+}
+
+.timelineNumbers {
+  font-weight: 700;
+  font-size: 12px;
+  color: #1F1916;
+  width: 140px;
+  text-align: right;
+}
+
+/* Telegram Setup Box */
+.telegramSetupBox {
+  background: linear-gradient(135deg, #F0F8FF 0%, #FFFFFF 100%);
+  border: 1.5px solid #C2E0FF;
+  border-radius: 18px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.telegramStatusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.telegramStatusConnected {
+  background: #DEF7EC;
+  color: #03543F;
+}
+
+.telegramStatusDisconnected {
+  background: #FDE8E8;
+  color: #9B1C1C;
+}
+
+/* Notification Alert Rows */
+.notifyToggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: #FAF8F5;
+  border: 1px solid #EFE8DE;
+  border-radius: 14px;
+  gap: 16px;
+}
+
+.notifyToggleText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.notifyToggleTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1F1916;
+}
+
+.notifyToggleDesc {
+  font-size: 12px;
+  color: #8C8075;
+}
+
+/* Income Table & Modals */
+.incomeContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  animation: fadeIn 0.25s ease;
+  padding-bottom: 40px;
+}
+
+.incomeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.incomeTableWrap {
+  background: #FFFFFF;
+  border: 1px solid #EFE8DE;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(44, 34, 30, 0.03);
+}
+
+.incomeBadgeStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.incomeBadgeReceived {
+  background: #DEF7EC;
+  color: #03543F;
+}
+
+.incomeBadgePending {
+  background: #FEF08A;
+  color: #854D0E;
+}
+
+.incomeBadgeOverdue {
+  background: #FEE2E2;
+  color: #991B1B;
+}

@@ -39,9 +39,25 @@ model Workspace {
   expenseCodes    String            @default("[\"6100 Office\", \"6200 Meals\", \"6300 Transport\", \"6400 Utilities\"]")
   projects        String            @default("[\"GA-2026 General admin\", \"TRN-09 Staff training\", \"BD-2026 Business dev\"]")
 
+  // Telegram Bot Integration
+  telegramBotToken    String?
+  telegramChatId      String?
+  telegramBotActive   Boolean           @default(false)
+  telegramBotUsername String?
+
+  // Automated Notification Alert Settings
+  notifyHighSpend     Boolean           @default(true)
+  notifyHighSpendMin  Float             @default(100.0) // USD equivalent threshold
+  notifyDailyDigest   Boolean           @default(true)
+  notifyNewIncome     Boolean           @default(true)
+  notifyAnomalies     Boolean           @default(true)
+  notifyBudgetAlert   Boolean           @default(true)
+  monthlyBudgetUsd    Float             @default(5000.0)
+
   users           User[]
   invites         WorkspaceInvite[]
   receipts        Receipt[]
+  incomes         Income[]
   columns         WorkspaceColumn[]
   createdAt       DateTime          @default(now())
 }
@@ -109,3 +125,31 @@ model Receipt {
 
   createdAt        DateTime   @default(now())
 }
+
+// 5. Company Income & Client Invoices (Two-sided ledger)
+model Income {
+  id             String     @id @default(uuid())
+  workspaceId    String
+  workspace      Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  date           String     // e.g. "2026-10-18"
+  invoiceNo      String?    // e.g. "INV-2026-001"
+  clientName     String     // e.g. "Angkor Tech Ltd"
+  clientTin      String?    // e.g. "K001-900823412"
+  description    String?    // e.g. "Software retainer Q3"
+  category       String?    // e.g. "Client Services", "Sales", "Consulting", "Other"
+  paymentMethod  String?    // e.g. "ABA Bank Transfer", "Cash", "Bakong KHQR"
+
+  currency       String     @default("USD") // USD or KHR
+  rate           Float      @default(4100.0)
+  amountExclVat  Float      @default(0.0)
+  vat            Float      @default(0.0)
+  total          Float
+  totalBaseEquiv Float
+
+  status         String     @default("RECEIVED") // RECEIVED, PENDING, OVERDUE
+  reference      String?
+
+  createdAt      DateTime   @default(now())
+}
+

@@ -63,6 +63,15 @@ import {
   Rocket,
   ZoomIn,
   ZoomOut,
+  BarChart3,
+  LineChart,
+  DollarSign,
+  Send,
+  Bot,
+  MessageSquare,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Coins,
 } from 'lucide-react';
 import { ReceiptIcon } from '@/components/ReceiptIcon';
 
@@ -188,7 +197,7 @@ interface CurrentUser {
 }
 
 export default function KomnottraApp() {
-  const [activeScreen, setActiveScreen] = useState<'home' | 'scan' | 'review' | 'batch-review' | 'approvals' | 'reports' | 'archive' | 'settings' | 'team'>('home');
+  const [activeScreen, setActiveScreen] = useState<'home' | 'scan' | 'review' | 'batch-review' | 'approvals' | 'reports' | 'archive' | 'settings' | 'team' | 'analytics' | 'income'>('home');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
   const t = TRANSLATIONS.en;
 
@@ -434,6 +443,17 @@ export default function KomnottraApp() {
     columns: Array<{ id: string; key: string; label: string; isVisible: boolean; isRequired: boolean; order: number }>;
     expenseCodes: string[];
     departments: string[];
+    telegramBotToken?: string;
+    telegramChatId?: string;
+    telegramBotActive?: boolean;
+    telegramBotUsername?: string;
+    notifyHighSpend?: boolean;
+    notifyHighSpendMin?: number;
+    notifyDailyDigest?: boolean;
+    notifyNewIncome?: boolean;
+    notifyAnomalies?: boolean;
+    notifyBudgetAlert?: boolean;
+    monthlyBudgetUsd?: number;
   }>({
     name: 'Workspace',
     baseCurrency: 'KHR',
@@ -444,11 +464,177 @@ export default function KomnottraApp() {
     columns: [],
     expenseCodes: ['Meals', 'Transport', 'Office supplies', 'Utilities', 'Other'],
     departments: ['Administration', 'Sales', 'Engineering', 'Operations'],
+    telegramBotToken: '',
+    telegramChatId: '',
+    telegramBotActive: false,
+    telegramBotUsername: '',
+    notifyHighSpend: true,
+    notifyHighSpendMin: 100,
+    notifyDailyDigest: true,
+    notifyNewIncome: true,
+    notifyAnomalies: true,
+    notifyBudgetAlert: true,
+    monthlyBudgetUsd: 5000,
   });
   const [isSavingSettings, setIsSavingSettings] = useState<boolean>(false);
   const [settingsNotice, setSettingsNotice] = useState<string>('');
   const [newCategoryInput, setNewCategoryInput] = useState<string>('');
   const [newDeptInput, setNewDeptInput] = useState<string>('');
+
+  // Executive Analytics & Predictive Runway State
+  const [analyticsData, setAnalyticsData] = useState<any | null>(null);
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState<boolean>(false);
+
+  // Inflow & Company Billing State
+  const [incomes, setIncomes] = useState<any[]>([]);
+  const [isLoadingIncomes, setIsLoadingIncomes] = useState<boolean>(false);
+  const [isIncomeModalOpen, setIsIncomeModalOpen] = useState<boolean>(false);
+  const [incomeForm, setIncomeForm] = useState({
+    clientName: '',
+    invoiceNo: '',
+    tin: '',
+    category: 'Client Services',
+    paymentMethod: 'KHQR / Bank Transfer',
+    currency: 'USD' as 'USD' | 'KHR',
+    total: '',
+    date: new Date().toISOString().substring(0, 10),
+    status: 'RECEIVED' as 'RECEIVED' | 'PENDING' | 'OVERDUE',
+    reference: '',
+  });
+  const [isSavingIncome, setIsSavingIncome] = useState<boolean>(false);
+
+  // Telegram Testing State
+  const [isTestingTelegram, setIsTestingTelegram] = useState<boolean>(false);
+  const [telegramTestResult, setTelegramTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  const fetchAnalytics = async () => {
+    setIsLoadingAnalytics(true);
+    try {
+      const res = await fetch('/api/analytics');
+      const data = await res.json();
+      if (data.success) {
+        setAnalyticsData(data);
+      }
+    } catch (err) {
+      console.error('Failed to load analytics:', err);
+    } finally {
+      setIsLoadingAnalytics(false);
+    }
+  };
+
+  const fetchIncomes = async () => {
+    setIsLoadingIncomes(true);
+    try {
+      const res = await fetch('/api/income');
+      const data = await res.json();
+      if (data.success && data.incomes) {
+        setIncomes(data.incomes);
+      }
+    } catch (err) {
+      console.error('Failed to load incomes:', err);
+    } finally {
+      setIsLoadingIncomes(false);
+    }
+  };
+
+  const handleCreateIncome = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!incomeForm.clientName.trim() || !incomeForm.total) {
+      alert('Please enter client name and total amount.');
+      return;
+    }
+    setIsSavingIncome(true);
+    try {
+      const res = await fetch('/api/income', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...incomeForm,
+          total: parseFloat(incomeForm.total),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIsIncomeModalOpen(false);
+        setIncomeForm({
+          clientName: '',
+          invoiceNo: '',
+          tin: '',
+          category: 'Client Services',
+          paymentMethod: 'KHQR / Bank Transfer',
+          currency: 'USD',
+          total: '',
+          date: new Date().toISOString().substring(0, 10),
+          status: 'RECEIVED',
+          reference: '',
+        });
+        fetchIncomes();
+        fetchAnalytics();
+        setSettingsNotice('Company Income / Bill recorded successfully!');
+        setTimeout(() => setSettingsNotice(''), 3500);
+      } else {
+        alert('Error: ' + data.error);
+      }
+    } catch (err: any) {
+      alert('Failed to save income: ' + err.message);
+    } finally {
+      setIsSavingIncome(false);
+    }
+  };
+
+  const handleDeleteIncome = async (id: string) => {
+    if (!window.confirm('Delete this income record?')) return;
+    try {
+      const res = await fetch(`/api/income?id=${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setIncomes((prev) => prev.filter((i) => i.id !== id));
+        fetchAnalytics();
+      }
+    } catch (err) {
+      console.error('Failed to delete income:', err);
+    }
+  };
+
+  const handleTestTelegram = async () => {
+    if (!workspaceSettings.telegramBotToken) {
+      alert('Please enter your Telegram Bot Token first.');
+      return;
+    }
+    setIsTestingTelegram(true);
+    setTelegramTestResult(null);
+    try {
+      const res = await fetch('/api/telegram/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          botToken: workspaceSettings.telegramBotToken,
+          chatId: workspaceSettings.telegramChatId,
+        }),
+      });
+      const data = await res.json();
+      setTelegramTestResult({
+        success: data.success,
+        message: data.success
+          ? `Successfully connected! Bot username: @${data.botUsername || 'your_bot'}. Webhook registered & test ping sent.`
+          : (data.error || 'Connection failed. Please check Bot Token and Chat ID.'),
+      });
+      if (data.success && data.botUsername) {
+        setWorkspaceSettings((prev) => ({
+          ...prev,
+          telegramBotActive: true,
+          telegramBotUsername: data.botUsername,
+        }));
+      }
+    } catch (err: any) {
+      setTelegramTestResult({
+        success: false,
+        message: 'Network error testing Telegram: ' + err.message,
+      });
+    } finally {
+      setIsTestingTelegram(false);
+    }
+  };
 
   const fetchWorkspace = async () => {
     try {
@@ -472,6 +658,17 @@ export default function KomnottraApp() {
           columns: data.workspace.columns || [],
           expenseCodes: loadedCodes,
           departments: loadedDepts,
+          telegramBotToken: data.workspace.telegramBotToken || '',
+          telegramChatId: data.workspace.telegramChatId || '',
+          telegramBotActive: Boolean(data.workspace.telegramBotActive),
+          telegramBotUsername: data.workspace.telegramBotUsername || '',
+          notifyHighSpend: data.workspace.notifyHighSpend ?? true,
+          notifyHighSpendMin: data.workspace.notifyHighSpendMin ?? 100,
+          notifyDailyDigest: data.workspace.notifyDailyDigest ?? true,
+          notifyNewIncome: data.workspace.notifyNewIncome ?? true,
+          notifyAnomalies: data.workspace.notifyAnomalies ?? true,
+          notifyBudgetAlert: data.workspace.notifyBudgetAlert ?? true,
+          monthlyBudgetUsd: data.workspace.monthlyBudgetUsd ?? 5000,
         });
         setHeaderRateInput(String(loadedRate));
         if (data.workspace.inviteCode) {
@@ -598,6 +795,8 @@ export default function KomnottraApp() {
           fetchLiveReceipts();
           fetchWorkspace();
           fetchMembers();
+          fetchAnalytics();
+          fetchIncomes();
         }
       } else {
         setCurrentUser(null);
@@ -754,6 +953,14 @@ export default function KomnottraApp() {
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (activeScreen === 'analytics') {
+      fetchAnalytics();
+    } else if (activeScreen === 'income') {
+      fetchIncomes();
+    }
+  }, [activeScreen]);
 
   // Start Real Webcam Stream
   const startWebcam = async () => {
@@ -2073,6 +2280,30 @@ export default function KomnottraApp() {
               >
                 <div className={styles.navItemLeft}>
                   <Home size={16} /> {t.home}
+                </div>
+              </div>
+              <div
+                className={`${styles.navMenuItem} ${activeScreen === 'analytics' ? styles.navMenuItemActive : ''}`}
+                onClick={() => {
+                  setActiveScreen('analytics');
+                  fetchAnalytics();
+                  setIsMobileSidebarOpen(false);
+                }}
+              >
+                <div className={styles.navItemLeft}>
+                  <BarChart3 size={16} /> Analytics &amp; Runway
+                </div>
+              </div>
+              <div
+                className={`${styles.navMenuItem} ${activeScreen === 'income' ? styles.navMenuItemActive : ''}`}
+                onClick={() => {
+                  setActiveScreen('income');
+                  fetchIncomes();
+                  setIsMobileSidebarOpen(false);
+                }}
+              >
+                <div className={styles.navItemLeft}>
+                  <DollarSign size={16} /> Income &amp; Inflows
                 </div>
               </div>
               <div
@@ -4012,6 +4243,227 @@ export default function KomnottraApp() {
                   </div>
                 </div>
 
+                {/* Card 5: Telegram Bot CFO Assistant Integration */}
+                <div className={styles.settingsCard}>
+                  <div className={styles.settingsCardHeader}>
+                    <div>
+                      <div className={styles.settingsCardTitle} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Bot size={18} color="#0088cc" /> Telegram CFO Agent &amp; Chatbot
+                      </div>
+                      <div className={styles.settingsCardDesc}>
+                        Connect your workspace to a dedicated Telegram bot. The bot can answer questions about your spendings, predict future runway, and send real-time alerts.
+                      </div>
+                    </div>
+                    <div>
+                      {workspaceSettings.telegramBotToken && workspaceSettings.telegramChatId ? (
+                        <span className={`${styles.telegramStatusPill} ${styles.telegramStatusConnected}`}>
+                          <CheckCircle2 size={12} /> Connected (@{workspaceSettings.telegramBotUsername || 'bot'})
+                        </span>
+                      ) : (
+                        <span className={`${styles.telegramStatusPill} ${styles.telegramStatusDisconnected}`}>
+                          <AlertCircle size={12} /> Not Configured
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className={styles.telegramSetupBox}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#0088cc', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Send size={18} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#1F1916' }}>Two-Way Financial Chatbot &amp; Live Alerts</div>
+                        <div style={{ fontSize: '12px', color: '#6A5E55' }}>Ask anything like <em>"What is our burn rate?"</em>, <em>"Predict next month runway"</em>, or take photos of receipts directly in Telegram!</div>
+                      </div>
+                    </div>
+
+                    <div className={styles.settingsFormGrid}>
+                      <div className={styles.settingsFormGroup}>
+                        <label className={styles.settingsLabel}>Telegram Bot Token (from @BotFather)</label>
+                        <input
+                          type="password"
+                          className={styles.warmInput}
+                          placeholder="e.g. 7123456789:AAHxxxxx_xxxxxxxxxxxxxxx"
+                          value={workspaceSettings.telegramBotToken || ''}
+                          onChange={(e) => setWorkspaceSettings({ ...workspaceSettings, telegramBotToken: e.target.value })}
+                        />
+                        <span style={{ fontSize: '11px', color: '#8C8075' }}>
+                          Create a bot in Telegram by chatting with @BotFather, send /newbot, and paste the API token here.
+                        </span>
+                      </div>
+
+                      <div className={styles.settingsFormGroup}>
+                        <label className={styles.settingsLabel}>Default Notification Chat ID</label>
+                        <input
+                          type="text"
+                          className={styles.warmInput}
+                          placeholder="e.g. 123456789 or -100123456789"
+                          value={workspaceSettings.telegramChatId || ''}
+                          onChange={(e) => setWorkspaceSettings({ ...workspaceSettings, telegramChatId: e.target.value })}
+                        />
+                        <span style={{ fontSize: '11px', color: '#8C8075' }}>
+                          Your Telegram User ID or Group ID. Or simply send <code>/start {workspaceSettings.inviteCode || 'YOUR_CODE'}</code> to your bot to auto-pair!
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', paddingTop: '4px' }}>
+                      <button
+                        type="button"
+                        className={styles.btnScanMore}
+                        onClick={handleTestTelegram}
+                        disabled={isTestingTelegram || !workspaceSettings.telegramBotToken}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                      >
+                        {isTestingTelegram ? <Loader2 size={14} className={styles.spinner} /> : <Zap size={14} />}
+                        {isTestingTelegram ? 'Testing Connection...' : 'Test Connection & Ping Bot'}
+                      </button>
+
+                      {workspaceSettings.inviteCode && (
+                        <div style={{ fontSize: '12px', color: '#5C5248', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span>Pair command:</span>
+                          <code style={{ background: '#EFE8DE', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                            /start {workspaceSettings.inviteCode}
+                          </code>
+                        </div>
+                      )}
+                    </div>
+
+                    {telegramTestResult && (
+                      <div style={{
+                        padding: '10px 14px',
+                        borderRadius: '10px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        background: telegramTestResult.success ? '#DEF7EC' : '#FDE8E8',
+                        color: telegramTestResult.success ? '#03543F' : '#9B1C1C',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                      }}>
+                        {telegramTestResult.success ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                        <span>{telegramTestResult.message}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Card 6: Automated Notification Rules & Thresholds */}
+                <div className={styles.settingsCard}>
+                  <div className={styles.settingsCardHeader}>
+                    <div>
+                      <div className={styles.settingsCardTitle} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Bell size={18} /> Automated Notification Rules &amp; Thresholds
+                      </div>
+                      <div className={styles.settingsCardDesc}>
+                        Configure which events automatically push immediate Telegram notifications to the workspace owner.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div className={styles.notifyToggleRow}>
+                      <div className={styles.notifyToggleText}>
+                        <div className={styles.notifyToggleTitle}>High-Value Claim Alerts</div>
+                        <div className={styles.notifyToggleDesc}>
+                          Push alert when a staff member uploads an expense claim exceeding the dollar threshold.
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ fontSize: '12px', fontWeight: 600 }}>Min: $</span>
+                          <input
+                            type="number"
+                            className={styles.warmInput}
+                            style={{ width: '80px', padding: '6px 10px', height: '32px' }}
+                            value={workspaceSettings.notifyHighSpendMin ?? 100}
+                            onChange={(e) => setWorkspaceSettings({ ...workspaceSettings, notifyHighSpendMin: parseFloat(e.target.value) || 0 })}
+                          />
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={workspaceSettings.notifyHighSpend ?? true}
+                          onChange={(e) => setWorkspaceSettings({ ...workspaceSettings, notifyHighSpend: e.target.checked })}
+                          style={{ width: '18px', height: '18px', accentColor: '#7A222B', cursor: 'pointer' }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className={styles.notifyToggleRow}>
+                      <div className={styles.notifyToggleText}>
+                        <div className={styles.notifyToggleTitle}>New Income / Billing Inflow Alert</div>
+                        <div className={styles.notifyToggleDesc}>
+                          Receive notification when a client invoice or customer payment is recorded into the system.
+                        </div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={workspaceSettings.notifyNewIncome ?? true}
+                        onChange={(e) => setWorkspaceSettings({ ...workspaceSettings, notifyNewIncome: e.target.checked })}
+                        style={{ width: '18px', height: '18px', accentColor: '#7A222B', cursor: 'pointer' }}
+                      />
+                    </div>
+
+                    <div className={styles.notifyToggleRow}>
+                      <div className={styles.notifyToggleText}>
+                        <div className={styles.notifyToggleTitle}>Fraud &amp; Duplicate Receipt Sentinel</div>
+                        <div className={styles.notifyToggleDesc}>
+                          Instant warning when duplicate receipts or mismatched tax TINs are detected by AI.
+                        </div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={workspaceSettings.notifyAnomalies ?? true}
+                        onChange={(e) => setWorkspaceSettings({ ...workspaceSettings, notifyAnomalies: e.target.checked })}
+                        style={{ width: '18px', height: '18px', accentColor: '#7A222B', cursor: 'pointer' }}
+                      />
+                    </div>
+
+                    <div className={styles.notifyToggleRow}>
+                      <div className={styles.notifyToggleText}>
+                        <div className={styles.notifyToggleTitle}>Daily Morning CFO Digest</div>
+                        <div className={styles.notifyToggleDesc}>
+                          Brief morning summary with yesterday spend, total cash balance, and runway status.
+                        </div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={workspaceSettings.notifyDailyDigest ?? true}
+                        onChange={(e) => setWorkspaceSettings({ ...workspaceSettings, notifyDailyDigest: e.target.checked })}
+                        style={{ width: '18px', height: '18px', accentColor: '#7A222B', cursor: 'pointer' }}
+                      />
+                    </div>
+
+                    <div className={styles.notifyToggleRow}>
+                      <div className={styles.notifyToggleText}>
+                        <div className={styles.notifyToggleTitle}>Monthly Budget Runway Warning</div>
+                        <div className={styles.notifyToggleDesc}>
+                          Alert when monthly spendings cross 80% and 100% of the allocated budget.
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ fontSize: '12px', fontWeight: 600 }}>Budget: $</span>
+                          <input
+                            type="number"
+                            className={styles.warmInput}
+                            style={{ width: '90px', padding: '6px 10px', height: '32px' }}
+                            value={workspaceSettings.monthlyBudgetUsd ?? 5000}
+                            onChange={(e) => setWorkspaceSettings({ ...workspaceSettings, monthlyBudgetUsd: parseFloat(e.target.value) || 0 })}
+                          />
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={workspaceSettings.notifyBudgetAlert ?? true}
+                          onChange={(e) => setWorkspaceSettings({ ...workspaceSettings, notifyBudgetAlert: e.target.checked })}
+                          style={{ width: '18px', height: '18px', accentColor: '#7A222B', cursor: 'pointer' }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingBottom: '32px' }}>
                   <button
                     className={styles.btnApproveReport}
@@ -4182,8 +4634,620 @@ export default function KomnottraApp() {
                 </div>
               </div>
             )}
+
+            {/* SCREEN: EXECUTIVE ANALYTICS & PREDICTIVE RUNWAY */}
+            {activeScreen === 'analytics' && (
+              <div className={styles.analyticsContainer}>
+                {/* Header */}
+                <div className={styles.analyticsHeader}>
+                  <div>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#8C8075', letterSpacing: '0.08em', marginBottom: '4px' }}>
+                      CFO INTELLIGENCE &amp; RUNWAY PREDICTIONS
+                    </div>
+                    <h2 style={{ fontFamily: 'var(--font-primary)', fontSize: '28px', fontWeight: 800, letterSpacing: '-0.02em', color: '#1F1916', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <BarChart3 size={26} color="#7A222B" /> Financial Health &amp; Analytics
+                    </h2>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <button
+                      type="button"
+                      className={styles.btnScanMore}
+                      onClick={fetchAnalytics}
+                      disabled={isLoadingAnalytics}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <RefreshCw size={14} className={isLoadingAnalytics ? styles.spinner : ''} />
+                      {isLoadingAnalytics ? 'Updating...' : 'Refresh Live'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Top Metrics Row */}
+                <div className={styles.analyticsMetricsGrid}>
+                  {/* Runway Clock */}
+                  <div className={styles.analyticsCard}>
+                    <div className={styles.analyticsCardTitle}>
+                      <Clock size={16} color="#7A222B" /> Cash Runway Clock
+                    </div>
+                    <div className={styles.analyticsCardValue} style={{ color: (analyticsData?.metrics?.runwayMonths || 0) < 3 ? '#DC2626' : '#1F1916' }}>
+                      {analyticsData?.metrics?.runwayMonths !== undefined ? `${analyticsData.metrics.runwayMonths} mo` : '—'}
+                    </div>
+                    <div className={styles.analyticsCardSub} style={{ color: '#8C8075' }}>
+                      <span>Avg burn: ${Math.round(analyticsData?.metrics?.monthlyBurnUsd || 0).toLocaleString()}/mo</span>
+                    </div>
+                  </div>
+
+                  {/* Net Cashflow Dual Currency */}
+                  <div className={styles.analyticsCard}>
+                    <div className={styles.analyticsCardTitle}>
+                      <TrendingUp size={16} color="#10B981" /> Net Cashflow
+                    </div>
+                    <div className={styles.analyticsCardValue} style={{ color: (analyticsData?.metrics?.netCashflowUsd || 0) >= 0 ? '#10B981' : '#EF4444' }}>
+                      {(analyticsData?.metrics?.netCashflowUsd || 0) >= 0 ? '+' : ''}${Math.round(analyticsData?.metrics?.netCashflowUsd || 0).toLocaleString()}
+                    </div>
+                    <div className={styles.analyticsCardSub} style={{ color: '#8C8075' }}>
+                      <span>៛{Math.round(analyticsData?.metrics?.netCashflowKhr || 0).toLocaleString()} Riel total</span>
+                    </div>
+                  </div>
+
+                  {/* Total Income Inflow */}
+                  <div className={styles.analyticsCard}>
+                    <div className={styles.analyticsCardTitle}>
+                      <ArrowDownLeft size={16} color="#10B981" /> Total Inflow
+                    </div>
+                    <div className={styles.analyticsCardValue}>
+                      ${Math.round(analyticsData?.metrics?.totalIncomeUsd || 0).toLocaleString()}
+                    </div>
+                    <div className={styles.analyticsCardSub} style={{ color: '#10B981' }}>
+                      <span>{analyticsData?.metrics?.totalIncomes || 0} recorded invoices</span>
+                    </div>
+                  </div>
+
+                  {/* Total Expense Outflow */}
+                  <div className={styles.analyticsCard}>
+                    <div className={styles.analyticsCardTitle}>
+                      <ArrowUpRight size={16} color="#EF4444" /> Total Outflow
+                    </div>
+                    <div className={styles.analyticsCardValue}>
+                      ${Math.round(analyticsData?.metrics?.totalExpenseUsd || 0).toLocaleString()}
+                    </div>
+                    <div className={styles.analyticsCardSub} style={{ color: '#EF4444' }}>
+                      <span>{analyticsData?.metrics?.totalReceipts || 0} scanned receipts</span>
+                    </div>
+                  </div>
+
+                  {/* Next 30 Days Forecast */}
+                  <div className={styles.analyticsCard}>
+                    <div className={styles.analyticsCardTitle}>
+                      <Sparkles size={16} color="#E8BA5A" /> 30-Day AI Forecast
+                    </div>
+                    <div className={styles.analyticsCardValue}>
+                      ~${Math.round(analyticsData?.metrics?.nextMonthForecastUsd || 0).toLocaleString()}
+                    </div>
+                    <div className={styles.analyticsCardSub} style={{ color: '#8C8075' }}>
+                      <span>៛{Math.round(analyticsData?.metrics?.nextMonthForecastKhr || 0).toLocaleString()} projected</span>
+                    </div>
+                  </div>
+
+                  {/* Tax Compliance Score */}
+                  <div className={styles.analyticsCard}>
+                    <div className={styles.analyticsCardTitle}>
+                      <ShieldCheck size={16} color="#7A222B" /> GDT Tax Compliance
+                    </div>
+                    <div className={styles.analyticsCardValue}>
+                      {analyticsData?.metrics?.taxComplianceScore ?? 100}%
+                    </div>
+                    <div className={styles.analyticsCardSub} style={{ color: (analyticsData?.metrics?.taxComplianceScore ?? 100) >= 70 ? '#10B981' : '#F59E0B' }}>
+                      <span>Valid TIN &amp; invoice rate</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Visual Chart & Split Breakdown */}
+                <div className={styles.analyticsTwoCol}>
+                  {/* Left Column: Monthly Timeline Inflow vs Outflow */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div className={styles.settingsCard} style={{ margin: 0 }}>
+                      <div className={styles.settingsCardHeader}>
+                        <div>
+                          <div className={styles.settingsCardTitle} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <LineChart size={18} /> Monthly Cashflow Comparison (Inflow vs Outflow)
+                          </div>
+                          <div className={styles.settingsCardDesc}>
+                            Net balance comparison showing revenue collected vs business expense burn.
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className={styles.timelineChartWrap}>
+                        {analyticsData?.timeline && analyticsData.timeline.length > 0 ? (
+                          analyticsData.timeline.map((item: any) => {
+                            const maxVal = Math.max(1, ...analyticsData.timeline.map((t: any) => Math.max(t.incomeUsd, t.expenseUsd)));
+                            const incPct = Math.min(100, Math.round((item.incomeUsd / maxVal) * 100));
+                            const expPct = Math.min(100, Math.round((item.expenseUsd / maxVal) * 100));
+
+                            return (
+                              <div key={item.month} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700 }}>
+                                  <span style={{ color: '#1F1916' }}>{item.month}</span>
+                                  <span style={{ color: item.netUsd >= 0 ? '#10B981' : '#EF4444' }}>
+                                    Net: {item.netUsd >= 0 ? '+' : ''}${Math.round(item.netUsd).toLocaleString()}
+                                  </span>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  {/* Inflow bar */}
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '11px', width: '50px', color: '#10B981', fontWeight: 600 }}>Inflow</span>
+                                    <div style={{ flex: 1, height: '10px', background: '#E5E7EB', borderRadius: '5px', overflow: 'hidden' }}>
+                                      <div style={{ width: `${incPct}%`, height: '100%', background: '#10B981', borderRadius: '5px' }} />
+                                    </div>
+                                    <span style={{ fontSize: '11px', width: '65px', textAlign: 'right', fontWeight: 600, color: '#1F1916' }}>
+                                      ${Math.round(item.incomeUsd).toLocaleString()}
+                                    </span>
+                                  </div>
+                                  {/* Outflow bar */}
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '11px', width: '50px', color: '#EF4444', fontWeight: 600 }}>Outflow</span>
+                                    <div style={{ flex: 1, height: '10px', background: '#E5E7EB', borderRadius: '5px', overflow: 'hidden' }}>
+                                      <div style={{ width: `${expPct}%`, height: '100%', background: '#EF4444', borderRadius: '5px' }} />
+                                    </div>
+                                    <span style={{ fontSize: '11px', width: '65px', textAlign: 'right', fontWeight: 600, color: '#1F1916' }}>
+                                      ${Math.round(item.expenseUsd).toLocaleString()}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div style={{ textAlign: 'center', padding: '24px', color: '#8C8075', fontSize: '13px' }}>
+                            No monthly transaction records yet. As you scan receipts and log income, timeline bars will automatically render here.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Spend by Category */}
+                    <div className={styles.settingsCard} style={{ margin: 0 }}>
+                      <div className={styles.settingsCardHeader}>
+                        <div>
+                          <div className={styles.settingsCardTitle} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Tag size={18} /> Outflow Distribution by Category
+                          </div>
+                          <div className={styles.settingsCardDesc}>
+                            Breakdown of where capital was deployed.
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {analyticsData?.distributions?.expenseByCategory && Object.keys(analyticsData.distributions.expenseByCategory).length > 0 ? (
+                          Object.entries(analyticsData.distributions.expenseByCategory).map(([cat, val]: any, idx) => {
+                            const totalSpend = analyticsData.metrics.totalExpenseUsd || 1;
+                            const pct = Math.round((val.usd / totalSpend) * 100);
+                            const color = CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
+                            return (
+                              <div key={cat} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 600 }}>
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: color }} />
+                                    {cat}
+                                  </span>
+                                  <span>${Math.round(val.usd).toLocaleString()} ({pct}%)</span>
+                                </div>
+                                <div style={{ height: '6px', background: '#F0ECE6', borderRadius: '3px', overflow: 'hidden' }}>
+                                  <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: '3px' }} />
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div style={{ textAlign: 'center', padding: '16px', color: '#8C8075', fontSize: '13px' }}>
+                            No expense data logged yet.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: AI Anomalies & Telegram Bot Status */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    {/* Anomalies Card */}
+                    <div className={styles.settingsCard} style={{ margin: 0 }}>
+                      <div className={styles.settingsCardHeader}>
+                        <div>
+                          <div className={styles.settingsCardTitle} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <AlertTriangle size={18} color="#D97706" /> AI Anomaly &amp; Fraud Sentinel
+                          </div>
+                          <div className={styles.settingsCardDesc}>
+                            Automated flags on unusual or duplicate expenditures.
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {analyticsData?.anomalies && analyticsData.anomalies.length > 0 ? (
+                          analyticsData.anomalies.map((ano: any) => (
+                            <div
+                              key={ano.id + ano.type}
+                              style={{
+                                padding: '10px 12px',
+                                background: ano.type === 'DUPLICATE' ? '#FEF2F2' : '#FFFBEB',
+                                border: `1px solid ${ano.type === 'DUPLICATE' ? '#FCA5A5' : '#FDE68A'}`,
+                                borderRadius: '10px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '2px',
+                              }}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: '12px', fontWeight: 700, color: ano.type === 'DUPLICATE' ? '#991B1B' : '#92400E' }}>
+                                  {ano.title}
+                                </span>
+                                <span style={{ fontSize: '10px', color: '#8C8075' }}>{ano.date}</span>
+                              </div>
+                              <span style={{ fontSize: '11px', color: '#4B5563' }}>{ano.description}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div style={{ textAlign: 'center', padding: '24px 16px', background: '#F0FDF4', borderRadius: '12px', border: '1px solid #BBF7D0' }}>
+                            <CheckCircle2 size={24} color="#16A34A" style={{ margin: '0 auto 6px auto' }} />
+                            <div style={{ fontSize: '13px', fontWeight: 700, color: '#166534' }}>All Clear</div>
+                            <div style={{ fontSize: '11px', color: '#15803D' }}>No duplicate receipts or irregular claims detected.</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Telegram CFO Assistant Status */}
+                    <div className={styles.settingsCard} style={{ margin: 0, background: 'linear-gradient(135deg, #F0F8FF 0%, #FFFFFF 100%)', borderColor: '#BAE6FD' }}>
+                      <div className={styles.settingsCardHeader}>
+                        <div>
+                          <div className={styles.settingsCardTitle} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Bot size={18} color="#0284C7" /> Telegram CFO Agent
+                          </div>
+                          <div className={styles.settingsCardDesc}>
+                            Live conversational CFO linked to your Telegram.
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: '12px', fontWeight: 600, color: '#475569' }}>Status:</span>
+                          {workspaceSettings.telegramBotToken && workspaceSettings.telegramChatId ? (
+                            <span className={`${styles.telegramStatusPill} ${styles.telegramStatusConnected}`}>
+                              <CheckCircle2 size={12} /> Active (@{workspaceSettings.telegramBotUsername || 'bot'})
+                            </span>
+                          ) : (
+                            <span className={`${styles.telegramStatusPill} ${styles.telegramStatusDisconnected}`}>
+                              <AlertCircle size={12} /> Not Connected
+                            </span>
+                          )}
+                        </div>
+
+                        <div style={{ fontSize: '12px', color: '#64748B', lineHeight: '1.5' }}>
+                          Chat with your bot anytime about financial metrics, runway calculations, or send receipt photos straight from your phone camera!
+                        </div>
+
+                        <button
+                          type="button"
+                          className={styles.btnScanMore}
+                          style={{ width: '100%', justifyContent: 'center' }}
+                          onClick={() => setActiveScreen('settings')}
+                        >
+                          <Settings size={14} /> Configure Bot &amp; Push Alerts
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* SCREEN: INFLOW LEDGER & BILLING */}
+            {activeScreen === 'income' && (
+              <div className={styles.incomeContainer}>
+                {/* Header */}
+                <div className={styles.incomeHeader}>
+                  <div>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#8C8075', letterSpacing: '0.08em', marginBottom: '4px' }}>
+                      REVENUE &amp; CLIENT INFLOW
+                    </div>
+                    <h2 style={{ fontFamily: 'var(--font-primary)', fontSize: '28px', fontWeight: 800, letterSpacing: '-0.02em', color: '#1F1916', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <DollarSign size={26} color="#10B981" /> Company Inflow Ledger
+                    </h2>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <button
+                      type="button"
+                      className={styles.btnApproveReport}
+                      onClick={() => setIsIncomeModalOpen(true)}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <Plus size={16} /> Record Income / Bill
+                    </button>
+                  </div>
+                </div>
+
+                {/* Table */}
+                <div className={styles.incomeTableWrap}>
+                  <div style={{ padding: '16px 20px', borderBottom: '1px solid #EFE8DE', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '14px', fontWeight: 700, color: '#1F1916' }}>
+                      Incoming Payments &amp; Client Invoices ({incomes.length})
+                    </span>
+                    <button
+                      type="button"
+                      className={styles.btnScanMore}
+                      onClick={fetchIncomes}
+                      disabled={isLoadingIncomes}
+                      style={{ padding: '4px 10px', fontSize: '12px' }}
+                    >
+                      <RefreshCw size={12} className={isLoadingIncomes ? styles.spinner : ''} />
+                      Refresh
+                    </button>
+                  </div>
+
+                  {incomes.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '48px 24px', color: '#8C8075' }}>
+                      <Coins size={36} color="#A3968A" style={{ margin: '0 auto 12px auto' }} />
+                      <div style={{ fontSize: '16px', fontWeight: 700, color: '#1F1916', marginBottom: '4px' }}>
+                        No Income Records Found
+                      </div>
+                      <div style={{ fontSize: '13px', maxWidth: '400px', margin: '0 auto 16px auto' }}>
+                        Track customer payments, client retainer invoices, and company inflow alongside expenses to calculate your live cash runway.
+                      </div>
+                      <button
+                        type="button"
+                        className={styles.btnApproveReport}
+                        onClick={() => setIsIncomeModalOpen(true)}
+                        style={{ margin: '0 auto' }}
+                      >
+                        <Plus size={16} /> Record First Income
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table className={styles.reportTable}>
+                        <thead>
+                          <tr>
+                            <th>Date</th>
+                            <th>Client / Payer</th>
+                            <th>Invoice #</th>
+                            <th>Category</th>
+                            <th>Method</th>
+                            <th>Status</th>
+                            <th style={{ textAlign: 'right' }}>Amount</th>
+                            <th style={{ textAlign: 'center' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {incomes.map((inc) => (
+                            <tr key={inc.id}>
+                              <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{inc.date || inc.createdAt?.substring(0, 10)}</td>
+                              <td style={{ fontWeight: 700, color: '#1F1916' }}>{inc.clientName}</td>
+                              <td style={{ fontFamily: 'monospace', fontSize: '12px' }}>{inc.invoiceNo || '—'}</td>
+                              <td>
+                                <span style={{ fontSize: '12px', background: '#F3E8FF', color: '#6B21A8', padding: '3px 8px', borderRadius: '6px', fontWeight: 600 }}>
+                                  {inc.category || 'General'}
+                                </span>
+                              </td>
+                              <td style={{ fontSize: '12px', color: '#5C5248' }}>{inc.paymentMethod || 'Bank Transfer'}</td>
+                              <td>
+                                <span className={`${styles.incomeBadgeStatus} ${
+                                  inc.status === 'RECEIVED' ? styles.incomeBadgeReceived :
+                                  inc.status === 'OVERDUE' ? styles.incomeBadgeOverdue :
+                                  styles.incomeBadgePending
+                                }`}>
+                                  {inc.status || 'RECEIVED'}
+                                </span>
+                              </td>
+                              <td style={{ textAlign: 'right', fontWeight: 800, color: '#10B981', fontSize: '14px' }}>
+                                {inc.currency === 'USD' ? `$${Number(inc.total).toLocaleString()}` : `៛${Number(inc.total).toLocaleString()}`}
+                              </td>
+                              <td style={{ textAlign: 'center' }}>
+                                <button
+                                  type="button"
+                                  className={styles.btnDangerSm}
+                                  onClick={() => handleDeleteIncome(inc.id)}
+                                  title="Delete Record"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </main>
         </div>
+
+        {/* =========================================================================
+            RECORD COMPANY INCOME / BILL MODAL
+            ========================================================================= */}
+        {isIncomeModalOpen && (
+          <div className={styles.editReceiptModalBackdrop} onClick={() => setIsIncomeModalOpen(false)}>
+            <div className={styles.editReceiptModalContent} style={{ maxWidth: '580px' }} onClick={(e) => e.stopPropagation()}>
+              <div className={styles.editReceiptModalHeader}>
+                <div className={styles.editReceiptModalTitle}>
+                  <DollarSign size={22} color="#10B981" />
+                  <span>Record Company Income / Inflow</span>
+                </div>
+                <button
+                  type="button"
+                  className={styles.editReceiptModalClose}
+                  onClick={() => setIsIncomeModalOpen(false)}
+                  aria-label="Close modal"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateIncome} style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div className={styles.settingsFormGroup}>
+                  <label className={styles.settingsLabel}>Client / Payer Name *</label>
+                  <input
+                    type="text"
+                    required
+                    className={styles.warmInput}
+                    placeholder="e.g. Acme Corporation, Ministry of Commerce"
+                    value={incomeForm.clientName}
+                    onChange={(e) => setIncomeForm({ ...incomeForm, clientName: e.target.value })}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                  <div className={styles.settingsFormGroup}>
+                    <label className={styles.settingsLabel}>Invoice # / Bill ID</label>
+                    <input
+                      type="text"
+                      className={styles.warmInput}
+                      placeholder="e.g. INV-2026-001"
+                      value={incomeForm.invoiceNo}
+                      onChange={(e) => setIncomeForm({ ...incomeForm, invoiceNo: e.target.value })}
+                    />
+                  </div>
+                  <div className={styles.settingsFormGroup}>
+                    <label className={styles.settingsLabel}>Client TIN (Optional)</label>
+                    <input
+                      type="text"
+                      className={styles.warmInput}
+                      placeholder="e.g. K001-901234567"
+                      value={incomeForm.tin}
+                      onChange={(e) => setIncomeForm({ ...incomeForm, tin: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                  <div className={styles.settingsFormGroup}>
+                    <label className={styles.settingsLabel}>Amount *</label>
+                    <input
+                      type="number"
+                      step="any"
+                      required
+                      className={styles.warmInput}
+                      placeholder="0.00"
+                      value={incomeForm.total}
+                      onChange={(e) => setIncomeForm({ ...incomeForm, total: e.target.value })}
+                    />
+                  </div>
+                  <div className={styles.settingsFormGroup}>
+                    <label className={styles.settingsLabel}>Currency</label>
+                    <div className={styles.segmentedToggle} style={{ width: '100%', height: '42px' }}>
+                      <button
+                        type="button"
+                        className={`${styles.segmentBtn} ${incomeForm.currency === 'USD' ? styles.segmentBtnActive : ''}`}
+                        onClick={() => setIncomeForm({ ...incomeForm, currency: 'USD' })}
+                      >
+                        $ USD
+                      </button>
+                      <button
+                        type="button"
+                        className={`${styles.segmentBtn} ${incomeForm.currency === 'KHR' ? styles.segmentBtnActive : ''}`}
+                        onClick={() => setIncomeForm({ ...incomeForm, currency: 'KHR' })}
+                      >
+                        ៛ KHR
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                  <div className={styles.settingsFormGroup}>
+                    <label className={styles.settingsLabel}>Category</label>
+                    <select
+                      className={styles.warmSelect}
+                      value={incomeForm.category}
+                      onChange={(e) => setIncomeForm({ ...incomeForm, category: e.target.value })}
+                    >
+                      <option value="Client Services">Client Services</option>
+                      <option value="Consulting">Consulting</option>
+                      <option value="Product Sales">Product Sales</option>
+                      <option value="Monthly Retainer">Monthly Retainer</option>
+                      <option value="Grant / Funding">Grant / Funding</option>
+                      <option value="Other Revenue">Other Revenue</option>
+                    </select>
+                  </div>
+                  <div className={styles.settingsFormGroup}>
+                    <label className={styles.settingsLabel}>Payment Method</label>
+                    <select
+                      className={styles.warmSelect}
+                      value={incomeForm.paymentMethod}
+                      onChange={(e) => setIncomeForm({ ...incomeForm, paymentMethod: e.target.value })}
+                    >
+                      <option value="KHQR / Bank Transfer">KHQR / Bank Transfer</option>
+                      <option value="ABA PayWay">ABA PayWay</option>
+                      <option value="Cash">Cash</option>
+                      <option value="Wing / TrueMoney">Wing / TrueMoney</option>
+                      <option value="Cheque">Cheque</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                  <div className={styles.settingsFormGroup}>
+                    <label className={styles.settingsLabel}>Date</label>
+                    <input
+                      type="date"
+                      className={styles.warmInput}
+                      value={incomeForm.date}
+                      onChange={(e) => setIncomeForm({ ...incomeForm, date: e.target.value })}
+                    />
+                  </div>
+                  <div className={styles.settingsFormGroup}>
+                    <label className={styles.settingsLabel}>Status</label>
+                    <select
+                      className={styles.warmSelect}
+                      value={incomeForm.status}
+                      onChange={(e) => setIncomeForm({ ...incomeForm, status: e.target.value as any })}
+                    >
+                      <option value="RECEIVED">RECEIVED</option>
+                      <option value="PENDING">PENDING</option>
+                      <option value="OVERDUE">OVERDUE</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className={styles.settingsFormGroup}>
+                  <label className={styles.settingsLabel}>Reference / Notes</label>
+                  <input
+                    type="text"
+                    className={styles.warmInput}
+                    placeholder="e.g. Q3 payment via ABA Bank"
+                    value={incomeForm.reference}
+                    onChange={(e) => setIncomeForm({ ...incomeForm, reference: e.target.value })}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                  <button
+                    type="button"
+                    className={styles.btnSecondary}
+                    onClick={() => setIsIncomeModalOpen(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className={styles.btnApproveReport}
+                    disabled={isSavingIncome}
+                    style={{ width: 'auto', padding: '10px 24px' }}
+                  >
+                    {isSavingIncome ? 'Saving...' : 'Save Income Record'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* =========================================================================
             INSPECT & EDIT RECEIPT POPUP MODAL ("The Pop-up Thingy")

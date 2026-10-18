@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { NBC_EXCHANGE_RATE, calculateReceiptAmounts } from '@/lib/currency';
 import { getCurrentUser } from '@/lib/auth';
+import { notifyWorkspaceAlert } from '@/lib/telegram';
 import fs from 'fs';
 import path from 'path';
 
@@ -284,6 +285,19 @@ export async function POST(req: NextRequest) {
         rawExtractedJson: body.rawExtractedJson ? JSON.stringify(body.rawExtractedJson) : null,
       },
     });
+
+    // Trigger background Telegram alert for high-spend claims
+    const rateVal = workspace.exchangeRate || 4100;
+    const usdVal = math.currency === 'USD' ? math.total : math.total / rateVal;
+    notifyWorkspaceAlert(workspace.id, 'HIGH_SPEND', {
+      payee: newReceipt.payee,
+      amountUsd: usdVal,
+      totalFormatted: math.currency === 'USD' ? `$${math.total.toFixed(2)}` : `${math.total.toLocaleString()} ៛`,
+      claimantName: session?.name || 'Staff Member',
+      category: newReceipt.expenseCode,
+      department: newReceipt.department,
+      date: newReceipt.date,
+    }).catch((e) => console.error('Telegram receipt alert error:', e));
 
     return NextResponse.json({
       success: true,
