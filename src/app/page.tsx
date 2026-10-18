@@ -69,7 +69,6 @@ import {
   Send,
   Bot,
   MessageSquare,
-  Lock,
   ArrowDownLeft,
   ArrowUpRight,
   Coins,
@@ -4014,35 +4013,15 @@ export default function KomnottraApp() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                     <button
                       type="button"
-                      className={styles.btnScanMore}
+                      className={styles.btnRecordIncomeHeader}
                       onClick={() => setIsIncomeModalOpen(true)}
-                      style={{
-                        padding: '10px 18px',
-                        fontSize: '13px',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        background: '#ECFDF5',
-                        borderColor: '#A7F3D0',
-                        color: '#065F46',
-                        fontWeight: 700,
-                      }}
                     >
                       <Plus size={16} /> Record Income / Bill
                     </button>
                     {currentUser?.role === 'OWNER' && (
                       <button
                         type="button"
-                        className={styles.btnApproveReport}
-                        style={{
-                          padding: '10px 20px',
-                          fontSize: '13px',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          cursor: approvalQueue.length === 0 || isBatchApproving ? 'not-allowed' : 'pointer',
-                          opacity: approvalQueue.length === 0 || isBatchApproving ? 0.6 : 1,
-                        }}
+                        className={styles.btnApproveAllHeader}
                         onClick={handleApproveAllQueue}
                         disabled={approvalQueue.length === 0 || isBatchApproving}
                       >
@@ -4180,9 +4159,9 @@ export default function KomnottraApp() {
                         {approvalTab === 'INCOME' && (
                           <button
                             type="button"
-                            className={styles.btnApproveReport}
+                            className={styles.btnRecordIncomeHeader}
                             onClick={() => setIsIncomeModalOpen(true)}
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}
+                            style={{ marginTop: '8px' }}
                           >
                             <Plus size={15} /> Record Income / Bill
                           </button>
@@ -4940,16 +4919,6 @@ export default function KomnottraApp() {
                   </div>
 
                   <div className={styles.telegramSetupBox}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#0088cc', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Send size={18} />
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#1F1916' }}>Two-Way Financial Chatbot &amp; Live Alerts</div>
-                        <div style={{ fontSize: '12px', color: '#6A5E55' }}>Ask anything like <em>"What is our burn rate?"</em>, <em>"Predict next month runway"</em>, or take photos of receipts directly in Telegram!</div>
-                      </div>
-                    </div>
-
                     <div className={styles.settingsFormGrid}>
                       <div className={styles.settingsFormGroup}>
                         <label className={styles.settingsLabel}>Telegram Bot Token (from @BotFather)</label>
@@ -4960,9 +4929,6 @@ export default function KomnottraApp() {
                           value={workspaceSettings.telegramBotToken || ''}
                           onChange={(e) => setWorkspaceSettings({ ...workspaceSettings, telegramBotToken: e.target.value })}
                         />
-                        <span style={{ fontSize: '11px', color: '#8C8075' }}>
-                          Create a bot in Telegram by chatting with @BotFather, send /newbot, and paste the API token here.
-                        </span>
                       </div>
 
                       <div className={styles.settingsFormGroup}>
@@ -4978,9 +4944,6 @@ export default function KomnottraApp() {
                           value={workspaceSettings.telegramChatId || ''}
                           onChange={(e) => setWorkspaceSettings({ ...workspaceSettings, telegramChatId: e.target.value })}
                         />
-                        <span style={{ fontSize: '11px', color: '#8C8075' }}>
-                          Full executive access. Owners receive immediate High-Expense alerts (when receipts exceed the $ threshold) and can ask the chatbot questions about burn rate, runway, and reports.
-                        </span>
                       </div>
 
                       <div className={styles.settingsFormGroup}>
@@ -4996,19 +4959,15 @@ export default function KomnottraApp() {
                           value={workspaceSettings.telegramMemberChatIds || ''}
                           onChange={(e) => setWorkspaceSettings({ ...workspaceSettings, telegramMemberChatIds: e.target.value })}
                         />
-                        <span style={{ fontSize: '11px', color: '#8C8075' }}>
-                          Restricted access. Staff members can <b>ONLY</b> send receipt/invoice photos and tap the 2 buttons (Expense or Income). They cannot query financial metrics or view company runway.
-                        </span>
                       </div>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', paddingTop: '4px' }}>
                       <button
                         type="button"
-                        className={styles.btnScanMore}
+                        className={styles.btnTelegramTest}
                         onClick={handleTestTelegram}
                         disabled={isTestingTelegram || !workspaceSettings.telegramBotToken}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                       >
                         {isTestingTelegram ? <Loader2 size={14} className={styles.spinner} /> : <Zap size={14} />}
                         {isTestingTelegram ? 'Testing Connection...' : 'Test Connection & Ping Both IDs'}
@@ -5323,10 +5282,9 @@ export default function KomnottraApp() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <button
                       type="button"
-                      className={styles.btnScanMore}
+                      className={styles.btnHeaderOutline}
                       onClick={fetchAnalytics}
                       disabled={isLoadingAnalytics}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                     >
                       <RefreshCw size={14} className={isLoadingAnalytics ? styles.spinner : ''} />
                       {isLoadingAnalytics ? 'Updating...' : 'Refresh Live'}
@@ -5587,13 +5545,9 @@ export default function KomnottraApp() {
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span className={styles.chatbotBadgeLive}>
-                      <span className={styles.chatbotBadgeLiveDot} />
-                      Live Financial Ledger
-                    </span>
                     <button
                       type="button"
-                      className={styles.btnScanMore}
+                      className={styles.btnClearChat}
                       onClick={() => {
                         setChatMessages([
                           {
@@ -5604,7 +5558,6 @@ export default function KomnottraApp() {
                           },
                         ]);
                       }}
-                      style={{ fontSize: '12px', padding: '6px 12px' }}
                       title="Reset chat history"
                     >
                       <RefreshCw size={13} /> Clear Chat
@@ -5761,10 +5714,6 @@ export default function KomnottraApp() {
                     <Send size={18} />
                   </button>
                 </form>
-
-                <div className={styles.chatbotDisclaimer}>
-                  <Lock size={12} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} /> Private business conversation. Insights are calculated strictly from your workspace's approved transactions.
-                </div>
               </div>
             )}
 

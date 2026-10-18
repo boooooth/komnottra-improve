@@ -5239,3 +5239,136 @@
   }
 }
 
+/* ==========================================================================
+   UNIFIED HEADER & ACTION BUTTONS
+   ========================================================================== */
+
+.btnRecordIncomeHeader {
+  background: #ECFDF5;
+  color: #065F46;
+  border: 1px solid #A7F3D0;
+  padding: 9px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.btnRecordIncomeHeader:hover {
+  background: #D1FAE5;
+  border-color: #6EE7B7;
+  color: #047857;
+  transform: translateY(-1px);
+}
+
+.btnApproveAllHeader {
+  background: #7A222B;
+  color: #FFFFFF;
+  border: 1px solid #7A222B;
+  padding: 9px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.btnApproveAllHeader:hover:not(:disabled) {
+  background: #621921;
+  border-color: #621921;
+  transform: translateY(-1px);
+}
+
+.btnApproveAllHeader:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btnHeaderOutline {
+  background: #FFFFFF;
+  color: #5C4E44;
+  border: 1px solid #E5DFD7;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.btnHeaderOutline:hover:not(:disabled) {
+  background: #F8F5F1;
+  border-color: #D6CEC3;
+  color: #1F1916;
+  transform: translateY(-1px);
+}
+
+.btnHeaderOutline:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btnClearChat {
+  background: #FFFFFF;
+  color: #6A5E55;
+  border: 1px solid #E5DFD7;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.btnClearChat:hover {
+  background: #FEF2F2;
+  border-color: #FECACA;
+  color: #991B1B;
+  transform: translateY(-1px);
+}
+
+.btnTelegramTest {
+  background: #7A222B;
+  color: #FFFFFF;
+  border: 1px solid #7A222B;
+  padding: 9px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.btnTelegramTest:hover:not(:disabled) {
+  background: #621921;
+  border-color: #621921;
+  transform: translateY(-1px);
+}
+
+.btnTelegramTest:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
