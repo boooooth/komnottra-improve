@@ -34,7 +34,8 @@ Komnottra streamlines receipt processing into a unified digital pipeline:
 
 - **Application Framework:** Next.js 16 (App Router)
 - **Frontend Library:** React 19 with TypeScript
-- **Database Layer:** SQLite managed with Prisma ORM 6
+- **Database Layer:** PostgreSQL managed with Prisma ORM 6
+- **Container Infrastructure:** Docker Compose with isolated PostgreSQL, OmniRoute AI gateway, and Cloudflare Tunnel services
 - **Artificial Intelligence Engine:** Google Gemini Vision (`@google/genai` / `gemini-2.5-flash`) with optional fallback to OpenAI-compatible vision gateways
 - **Spreadsheet Generation:** ExcelJS
 - **Authentication:** Session-based JSON Web Tokens (jose, bcryptjs) with optional Google OAuth 2.0 integration
@@ -48,11 +49,10 @@ Komnottra streamlines receipt processing into a unified digital pipeline:
 komnottra/
 ├── prisma/
 │   ├── dev.db              # Local SQLite database (git-ignored)
-│   ├── schema.prisma       # Prisma schema definitions
-│   └── seed.ts             # Database seeding script with demo workspace
+│   └── schema.prisma       # Prisma schema definitions
 ├── public/
 │   ├── fonts/              # Typography and font assets
-│   ├── uploads/            # Uploaded receipts and sample SVGs
+│   ├── uploads/            # Uploaded receipts storage (.gitkeep)
 │   └── favicon.svg         # Application icon
 ├── src/
 │   ├── app/
@@ -78,76 +78,52 @@ komnottra/
 
 ### Prerequisites
 
-- Node.js version 18.18.0 or later (v20+ recommended)
-- npm version 9 or later
+### Quick Start with Docker Compose (Recommended)
 
-### 1. Clone the Repository
+1. **Clone the repository and copy environment variables:**
+   ```bash
+   cp .env.example .env
+   ```
+2. **Configure your keys in `.env`:**
+   - Add your `GEMINI_API_KEY` (or OmniRoute / custom AI credentials).
+   - If using Google Sign-In, add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+   - If using Cloudflare Tunnel, add your `CLOUDFLARE_TUNNEL_TOKEN`.
 
-```bash
-git clone https://github.com/boooooth/turing-hackathon-komnottra.git
-cd turing-hackathon-komnottra
-```
+3. **Start all services:**
+   ```bash
+   docker compose up -d --build
+   ```
 
-### 2. Install Dependencies
+   This launches:
+   - **`web`**: Next.js Komnottra app on port `3000` (auto-syncs Prisma schema with PostgreSQL on boot).
+   - **`db`**: PostgreSQL 18 with dedicated persistent volume `komnottra_pgdata`.
+   - **`omniroute`**: OmniRoute AI proxy on port `20128` with dedicated volume `komnottra_omniroute_data`.
+   - **`tunnel`**: Cloudflare Tunnel for secure external access.
 
-```bash
-npm install
-```
-
-### 3. Configure Environment Variables
-
-Create a local `.env` file based on `.env.example`:
-
-```bash
-cp .env.example .env
-```
-
-Populate the configuration variables as appropriate:
-
-| Variable | Required | Description |
-|---|---|---|
-| `DATABASE_URL` | Yes | SQLite connection string (e.g., `file:./dev.db`) |
-| `NEXTAUTH_URL` | Yes | Base URL of the application (e.g., `http://localhost:3000`) |
-| `NEXTAUTH_SECRET` | Yes | Secret string used for session signing |
-| `JWT_SECRET` | Yes | Secret string used for JWT tokens |
-| `GEMINI_API_KEY` | Recommended | Google Gemini API key for receipt OCR and metadata extraction |
-| `GEMINI_MODEL` | Optional | Vision model name (defaults to `gemini-2.5-flash`) |
-| `GOOGLE_CLIENT_ID` | Optional | Google OAuth Client ID for social sign-in |
-| `GOOGLE_CLIENT_SECRET` | Optional | Google OAuth Client Secret for social sign-in |
-| `AI_BASE_URL` | Optional | Custom OpenAI-compatible vision gateway endpoint |
-| `AI_API_KEY` | Optional | API key for custom vision gateway |
-
-### 4. Initialize Database Schema and Demo Data
-
-Push the Prisma schema to create the local SQLite database and populate demo records:
-
-```bash
-npx prisma db push
-npx tsx prisma/seed.ts
-```
-
-### 5. Launch the Development Server
-
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) in your web browser.
+4. Open [http://localhost:3000](http://localhost:3000) in your web browser.
 
 ---
 
-## Pre-Configured Demo Accounts
+### Alternative: Local Development without Docker
 
-The seed script creates the following pre-configured demonstration accounts (default password: `komnottra2026`):
+If running locally with Node.js:
 
-- **Workspace Admin (Finance Manager):** `admin@komnottra.kh`
-  - Full permissions: customize columns, manage rates, export Excel, invite members.
-- **Accountant / Auditor:** `accountant@komnottra.kh`
-  - Ledger access: review pending submissions, audit VAT/TIN, verify totals.
-- **Employee (Claimant):** `staff@komnottra.kh`
-  - Mobile scanner access: capture receipts, review AI extractions, submit claims.
+```bash
+npm install
+npx prisma generate
+npx prisma db push
+npm run dev
+```
 
-The landing and login pages also provide one-click demo access for rapid evaluation.
+---
+
+## User Onboarding and Workspaces
+
+Komnottra runs on a clean slate database where users sign in and manage their own workspaces:
+
+- **Google Sign-In / Account Creation:** Authenticate with your Google account.
+- **Workspace Setup Wizard:** First-time users are prompted by an interactive wizard to configure company name, base reporting currency (KHR or USD), and department expense codes.
+- **Invite Links:** Team members can join an existing company workspace using invite codes (e.g. `KOM-XXXX`).
 
 ---
 

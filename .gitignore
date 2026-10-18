@@ -52,9 +52,8 @@ cloudflared.exe
 *.so
 *.dylib
 
-# Uploaded user receipts & dynamic assets (preserve sample SVGs and .gitkeep)
+# Uploaded user receipts & dynamic assets (preserve directory via .gitkeep)
 public/uploads/*
-!public/uploads/sample_*.svg
 !public/uploads/.gitkeep
 
 # Logs and debugging
@@ -68,6 +67,7 @@ yarn-error.log*
 scratch/
 tmp/
 temp/
+data-stuff/
 
 # OS and Editor files
 .DS_Store

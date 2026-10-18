@@ -1,0 +1,88 @@
+services:
+  # 1. PostgreSQL Database Service
+  db:
+    image: postgres:18-alpine
+    container_name: komnottra-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-komnottra}
+    volumes:
+      - ./data-stuff/postgres:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-komnottra}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - komnottra-net
+
+  # 2. OmniRoute AI Proxy Service
+  omniroute:
+    image: diegosouzapw/omniroute:latest
+    container_name: komnottra-omniroute
+    restart: unless-stopped
+    environment:
+      PORT: 20128
+      DATA_DIR: /app/data
+      REQUIRE_API_KEY: "${OMNIROUTE_REQUIRE_API_KEY:-false}"
+    volumes:
+      - ./data-stuff/omniroute:/app/data
+    ports:
+      - "127.0.0.1:${OMNIROUTE_PORT:-20128}:20128"
+    networks:
+      - komnottra-net
+
+  # 3. Komnottra Next.js Web Application
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: komnottra-web
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      omniroute:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-komnottra}?schema=public
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-komnottra-secret-change-in-production}
+      JWT_SECRET: ${JWT_SECRET:-komnottra-jwt-secret-change-in-production}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      AI_BASE_URL: ${AI_BASE_URL:-http://omniroute:20128/v1}
+      AI_API_KEY: ${AI_API_KEY:-}
+      CHAT_MODEL: ${CHAT_MODEL:-serka-space}
+      REASONING_EFFORT: ${REASONING_EFFORT:-none}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+    ports:
+      - "127.0.0.1:${PORT:-3000}:3000"
+    volumes:
+      - ./data-stuff/uploads:/app/public/uploads
+    networks:
+      - komnottra-net
+
+  # 4. Cloudflare Tunnel Service
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: komnottra-tunnel
+    restart: unless-stopped
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    command: tunnel --no-autoupdate run
+    depends_on:
+      web:
+        condition: service_started
+    networks:
+      - komnottra-net
+
+networks:
+  komnottra-net:
+    name: komnottra_network
+    driver: bridge
