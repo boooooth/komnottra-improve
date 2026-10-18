@@ -3830,28 +3830,18 @@ export default function KomnottraApp() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                     <button
                       type="button"
-                      className={styles.btnSecondarySm}
-                      style={{ padding: '10px 16px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                      className={styles.btnSecondary}
                       onClick={() => setActiveScreen('scan')}
                     >
                       <Camera size={15} /> Add More
                     </button>
                     <button
                       type="button"
-                      className={styles.btnApproveReport}
-                      style={{
-                        padding: '10px 20px',
-                        fontSize: '13px',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        cursor: selectedBatchIds.length === 0 || isSubmittingBatch ? 'not-allowed' : 'pointer',
-                        opacity: selectedBatchIds.length === 0 || isSubmittingBatch ? 0.6 : 1,
-                      }}
+                      className={styles.btnApproveAllHeader}
                       onClick={handleSubmitBatchForApproval}
                       disabled={selectedBatchIds.length === 0 || isSubmittingBatch}
                     >
-                      {isSubmittingBatch ? <Loader2 size={16} className={styles.spinningIcon} /> : <CheckCircle2 size={16} />}
+                      {isSubmittingBatch ? <Loader2 size={16} className={styles.spinner} /> : <CheckCircle2 size={16} />}
                       Submit for Review ({selectedBatchIds.length})
                     </button>
                   </div>
@@ -4317,22 +4307,8 @@ export default function KomnottraApp() {
                             </button>
                             <button
                               type="button"
-                              style={{
-                                flex: 1,
-                                minWidth: '120px',
-                                background: '#FFFFFF',
-                                border: '1px solid #D6CBC1',
-                                borderRadius: '10px',
-                                padding: '10px 14px',
-                                fontSize: '13px',
-                                fontWeight: 700,
-                                color: '#4A3E36',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '6px',
-                                cursor: 'pointer',
-                              }}
+                              className={styles.btnSecondary}
+                              style={{ flex: 1, minWidth: '120px' }}
                               onClick={() => {
                                 if (selectedAuditItem.itemType === 'INCOME') {
                                   const fullIncome = incomes.find((i) => i.id === selectedAuditItem.id) || selectedAuditItem.rawIncome;
@@ -5901,7 +5877,7 @@ export default function KomnottraApp() {
                   />
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
                   <button
                     type="button"
                     className={styles.btnSecondary}
@@ -5911,10 +5887,10 @@ export default function KomnottraApp() {
                   </button>
                   <button
                     type="submit"
-                    className={styles.btnApproveReport}
+                    className={styles.btnModalPrimary}
                     disabled={isSavingIncome}
-                    style={{ width: 'auto', padding: '10px 24px' }}
                   >
+                    {isSavingIncome ? <Loader2 size={15} className={styles.spinner} /> : <Check size={15} />}
                     {isSavingIncome ? 'Saving...' : 'Save Income Record'}
                   </button>
                 </div>
@@ -6262,7 +6238,7 @@ export default function KomnottraApp() {
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <button
                       type="button"
-                      className={styles.btnSecondarySm}
+                      className={styles.btnSecondary}
                       onClick={handleCloseEditModal}
                       disabled={isSavingEdit}
                     >
@@ -6270,13 +6246,12 @@ export default function KomnottraApp() {
                     </button>
                     <button
                       type="submit"
-                      className={styles.btnApproveReport}
-                      style={{ width: 'auto', padding: '10px 18px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                      className={styles.btnModalPrimary}
                       disabled={isSavingEdit || isDeletingReceipt}
                     >
                       {isSavingEdit ? (
                         <>
-                          <Loader2 size={15} className={styles.spinning} /> Saving Changes...
+                          <Loader2 size={15} className={styles.spinner} /> Saving Changes...
                         </>
                       ) : (
                         <>
@@ -6287,27 +6262,14 @@ export default function KomnottraApp() {
                     {editingReceipt.status === 'PENDING' && currentUser?.role === 'OWNER' && (
                       <button
                         type="button"
-                        style={{
-                          background: '#15803D',
-                          borderColor: '#15803D',
-                          color: '#FFF',
-                          borderRadius: '10px',
-                          border: 'none',
-                          padding: '10px 18px',
-                          fontSize: '13px',
-                          fontWeight: 700,
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          cursor: 'pointer',
-                        }}
+                        className={styles.btnModalSuccess}
                         onClick={async (e) => {
                           await handleSaveEditReceipt(e);
                           await handleQueueDecision(editingReceipt.id, 'approve');
                         }}
                         disabled={isSavingEdit || isDeletingReceipt}
                       >
-                        <CheckCheck size={15} /> Save & Approve
+                        <CheckCheck size={15} /> Save &amp; Approve
                       </button>
                     )}
                   </div>
@@ -6472,7 +6434,7 @@ export default function KomnottraApp() {
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <button
                       type="button"
-                      className={styles.btnSecondarySm}
+                      className={styles.btnSecondary}
                       onClick={handleCloseEditIncomeModal}
                       disabled={isSavingEditIncome}
                     >
@@ -6480,30 +6442,16 @@ export default function KomnottraApp() {
                     </button>
                     <button
                       type="submit"
-                      className={styles.btnApproveReport}
-                      style={{ width: 'auto', padding: '10px 18px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                      className={styles.btnModalPrimary}
                       disabled={isSavingEditIncome}
                     >
-                      {isSavingEditIncome ? <Loader2 size={15} className={styles.spinning} /> : <Save size={15} />}
+                      {isSavingEditIncome ? <Loader2 size={15} className={styles.spinner} /> : <Save size={15} />}
                       Save Changes
                     </button>
                     {editingIncome.status === 'PENDING' && currentUser?.role === 'OWNER' && (
                       <button
                         type="button"
-                        style={{
-                          background: '#15803D',
-                          borderColor: '#15803D',
-                          color: '#FFF',
-                          borderRadius: '10px',
-                          border: 'none',
-                          padding: '10px 18px',
-                          fontSize: '13px',
-                          fontWeight: 700,
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          cursor: 'pointer',
-                        }}
+                        className={styles.btnModalSuccess}
                         onClick={(e) => handleSaveEditIncome(e, true)}
                         disabled={isSavingEditIncome}
                       >

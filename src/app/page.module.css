@@ -2266,26 +2266,105 @@
   background: #FEE2E2;
 }
 
+/* Unified Modal Secondary & Cancel Buttons */
+.btnSecondary,
 .btnSecondarySm {
   background: #FFFFFF !important;
   color: #5A514B !important;
   border: 1.5px solid #E5DCD0 !important;
-  border-radius: 10px;
-  padding: 9px 18px;
-  font-size: 13px;
-  font-weight: 700;
+  border-radius: 10px !important;
+  padding: 10px 20px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
+  font-family: inherit;
+  flex: none !important;
 }
 
+.btnSecondary:hover,
 .btnSecondarySm:hover {
   background: #F5EFE6 !important;
   color: #1F1916 !important;
   border-color: #D6C8B8 !important;
+  transform: translateY(-1px);
+}
+
+.btnSecondary:disabled,
+.btnSecondarySm:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Unified Modal Primary Action Buttons (Save, Submit, Confirm) */
+.btnModalPrimary {
+  background: #7A222B !important;
+  color: #FFFFFF !important;
+  border: 1px solid #7A222B !important;
+  border-radius: 10px !important;
+  padding: 10px 22px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-family: inherit;
+  flex: none !important;
+  box-shadow: 0 2px 8px rgba(122, 34, 43, 0.2);
+}
+
+.btnModalPrimary:hover:not(:disabled) {
+  background: #621921 !important;
+  border-color: #621921 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(122, 34, 43, 0.32);
+}
+
+.btnModalPrimary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Modal Success / Approve Buttons */
+.btnModalSuccess {
+  background: #15803D !important;
+  color: #FFFFFF !important;
+  border: 1px solid #15803D !important;
+  border-radius: 10px !important;
+  padding: 10px 20px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: inherit;
+  flex: none !important;
+  box-shadow: 0 2px 8px rgba(21, 128, 61, 0.2);
+}
+
+.btnModalSuccess:hover:not(:disabled) {
+  background: #166534 !important;
+  border-color: #166534 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(21, 128, 61, 0.32);
+}
+
+.btnModalSuccess:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
 }
 
 /* Mobile Segmented Tab for Edit Modal */
@@ -2390,6 +2469,8 @@
 }
 
 
+.spinner,
+.spinningIcon,
 .spinning {
   animation: spin 1s linear infinite;
 }
@@ -2518,6 +2599,34 @@
   outline: none;
 }
 
+.warmSelect {
+  background: #FBF7F0 !important;
+  color: #1F1916 !important;
+  border: 1.5px solid #EFE8DE !important;
+  border-radius: 10px !important;
+  padding: 10px 14px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  outline: none;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.warmSelect:focus {
+  background: #FFFFFF !important;
+  border-color: #7A222B !important;
+  box-shadow: 0 0 0 3px rgba(122, 34, 43, 0.12) !important;
+}
+
+.warmSelect option {
+  background: #FFFFFF;
+  color: #1F1916;
+  padding: 6px 10px;
+}
+
 .warmInputWarn {
   border: 1.5px solid #F59E0B;
   background: #FFFDF8;
@@ -2555,28 +2664,55 @@
 .btnApproveReport {
   background: #7A222B;
   color: #FFFFFF;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 12px;
-  font-weight: 700;
-  font-size: 14px;
+  border: 1px solid #7A222B;
+  padding: 10px 22px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 13px;
   cursor: pointer;
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.btnApproveReport:hover:not(:disabled) {
+  background: #621921;
+  border-color: #621921;
+  transform: translateY(-1px);
+}
+
+.btnApproveReport:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .btnRetake {
   background: #FFFFFF;
-  border: 1px solid #EFE8DE;
-  color: #7D7168;
-  padding: 12px 20px;
-  border-radius: 12px;
-  font-weight: 700;
-  font-size: 14px;
+  border: 1.5px solid #E5DCD0;
+  color: #5A514B;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 13px;
   cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btnRetake:hover {
+  background: #F5EFE6;
+  color: #1F1916;
+  border-color: #D6C8B8;
+  transform: translateY(-1px);
 }
 
 /* ================= SCREEN 4: APPROVALS & DUPLICATES ================= */
