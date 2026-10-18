@@ -5,9 +5,26 @@ import { extractReceiptWithGemini } from '@/lib/gemini';
 import fs from 'fs';
 import path from 'path';
 
+// In-memory cache to deduplicate Telegram webhook retries
+const processedUpdates = new Map<number, number>();
+
 export async function POST(req: NextRequest) {
   try {
     const update = await req.json();
+
+    // Deduplicate webhook retries from Telegram
+    if (update.update_id) {
+      if (processedUpdates.has(update.update_id)) {
+        return NextResponse.json({ ok: true });
+      }
+      processedUpdates.set(update.update_id, Date.now());
+      if (processedUpdates.size > 1000) {
+        const tenMinsAgo = Date.now() - 10 * 60 * 1000;
+        for (const [id, ts] of processedUpdates.entries()) {
+          if (ts < tenMinsAgo) processedUpdates.delete(id);
+        }
+      }
+    }
 
     const message = update.message || update.edited_message;
     if (!message || !message.chat) {
@@ -99,15 +116,20 @@ export async function POST(req: NextRequest) {
         const buffer = Buffer.from(arrayBuf);
         const base64 = buffer.toString('base64');
 
-        // Save local file copy
-        const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
-        if (!fs.existsSync(uploadsDir)) {
-          fs.mkdirSync(uploadsDir, { recursive: true });
+        // Save local file copy safely
+        let imageUrl = '';
+        try {
+          const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+          if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+          }
+          const fileName = `tg_${Date.now()}_receipt.jpg`;
+          const localPath = path.join(uploadsDir, fileName);
+          fs.writeFileSync(localPath, buffer);
+          imageUrl = `/uploads/${fileName}`;
+        } catch (fsErr) {
+          console.warn('Failed to save receipt image locally:', fsErr);
         }
-        const fileName = `tg_${Date.now()}_receipt.jpg`;
-        const localPath = path.join(uploadsDir, fileName);
-        fs.writeFileSync(localPath, buffer);
-        const imageUrl = `/uploads/${fileName}`;
 
         // Parse custom departments & categories
         let customCategories: string[] = [];
@@ -123,12 +145,17 @@ export async function POST(req: NextRequest) {
         });
 
         if (parsed) {
-          // Find or fallback to owner user
-          const ownerUser = await prisma.user.findFirst({
+          // Find or fallback to owner / first user in workspace
+          let claimantUser = await prisma.user.findFirst({
             where: { workspaceId: workspace.id, role: 'OWNER' },
           });
+          if (!claimantUser) {
+            claimantUser = await prisma.user.findFirst({
+              where: { workspaceId: workspace.id },
+            });
+          }
 
-          if (ownerUser) {
+          if (claimantUser) {
             const activeRate = workspace.exchangeRate || 4100;
             const isUsd = parsed.currency === 'USD';
             let totalBaseEquiv = 0;
@@ -141,7 +168,7 @@ export async function POST(req: NextRequest) {
             const receipt = await prisma.receipt.create({
               data: {
                 workspaceId: workspace.id,
-                claimantId: ownerUser.id,
+                claimantId: claimantUser.id,
                 date: parsed.date,
                 receiptNo: parsed.receiptNo || `TG-${Date.now().toString().slice(-4)}`,
                 payee: parsed.vendor || 'Merchant',
@@ -230,6 +257,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (error: any) {
     console.error('Error handling Telegram webhook:', error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    // Always return 200 OK to Telegram to prevent retry loops
+    return NextResponse.json({ ok: true });
   }
 }
