@@ -2912,19 +2912,7 @@ export default function KomnottraApp() {
                           ? `$${totalSpendUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                           : `${totalSpendKhr.toLocaleString()} ៛`}
                       </div>
-                      <div className={styles.heroAmountSub}>
-                        {receipts.length === 0
-                          ? 'No expenses logged yet in this workspace'
-                          : isBaseUsd
-                          ? `Dual-currency total · Equiv. to ${Math.round(totalSpendKhr).toLocaleString()} ៛ · Includes ${Math.round(totalKhrPortion).toLocaleString()} ៛ in local cash receipts`
-                          : totalUsdPortion > 0
-                          ? `Dual-currency total · Includes $${totalUsdPortion.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD converted at active rate`
-                          : `All expenses tracked in real-time`}
-                      </div>
                       <div className={styles.heroBottomRow}>
-                        <div className={styles.timeSavedPill}>
-                          <Clock size={13} /> {receipts.length > 0 ? `${Math.max(1, Math.round(receipts.length * 0.25))} hours of typing saved` : 'Live Dual-Currency Expense Engine'}
-                        </div>
                         <div className={styles.heroPeriod}>{currentUser?.workspaceName || 'Active Workspace'}</div>
                       </div>
                     </div>
@@ -2979,7 +2967,9 @@ export default function KomnottraApp() {
                           {approvalQueue.length}
                         </span>
                         <span className={styles.metricSub} style={{ color: '#8C8075' }}>
-                          {approvalQueue.length === 0 ? 'Zero pending' : `${pendingReceipts.length} exp · ${pendingIncomes.length} inc`}
+                          {approvalQueue.length === 0
+                            ? 'Zero pending'
+                            : `${pendingReceipts.length} ${pendingReceipts.length === 1 ? 'expense' : 'expenses'} · ${pendingIncomes.length} ${pendingIncomes.length === 1 ? 'income' : 'incomes'}`}
                         </span>
                       </div>
                     </div>
@@ -3027,15 +3017,6 @@ export default function KomnottraApp() {
                             );
                           })}
                         </div>
-                      </div>
-
-                      <div className={styles.categoryTip}>
-                        <Lightbulb size={16} color="#D97706" style={{ flexShrink: 0, marginTop: '2px' }} />
-                        <span>
-                          {totalSpendKhr === 0
-                            ? `Live dual-currency engine: approved expenses automatically convert using your active NBC exchange rate.`
-                            : `Highest spending category is ${topCategoryName} representing ${topCategoryPct}% of approved claims.`}
-                        </span>
                       </div>
                     </div>
                   </div>
@@ -5482,48 +5463,6 @@ export default function KomnottraApp() {
                             <div style={{ fontSize: '11px', color: '#15803D' }}>No duplicate receipts or irregular claims detected.</div>
                           </div>
                         )}
-                      </div>
-                    </div>
-
-                    {/* Telegram CFO Assistant Status */}
-                    <div className={styles.settingsCard} style={{ margin: 0, background: 'linear-gradient(135deg, #F0F8FF 0%, #FFFFFF 100%)', borderColor: '#BAE6FD' }}>
-                      <div className={styles.settingsCardHeader}>
-                        <div>
-                          <div className={styles.settingsCardTitle} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Bot size={18} color="#0284C7" /> Telegram CFO Agent
-                          </div>
-                          <div className={styles.settingsCardDesc}>
-                            Live conversational CFO linked to your Telegram.
-                          </div>
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <span style={{ fontSize: '12px', fontWeight: 600, color: '#475569' }}>Status:</span>
-                          {workspaceSettings.telegramBotToken && workspaceSettings.telegramChatId ? (
-                            <span className={`${styles.telegramStatusPill} ${styles.telegramStatusConnected}`}>
-                              <CheckCircle2 size={12} /> Active (@{workspaceSettings.telegramBotUsername || 'bot'})
-                            </span>
-                          ) : (
-                            <span className={`${styles.telegramStatusPill} ${styles.telegramStatusDisconnected}`}>
-                              <AlertCircle size={12} /> Not Connected
-                            </span>
-                          )}
-                        </div>
-
-                        <div style={{ fontSize: '12px', color: '#64748B', lineHeight: '1.5' }}>
-                          Chat with your bot anytime about financial metrics, runway calculations, or send receipt photos straight from your phone camera!
-                        </div>
-
-                        <button
-                          type="button"
-                          className={styles.btnScanMore}
-                          style={{ width: '100%', justifyContent: 'center' }}
-                          onClick={() => setActiveScreen('settings')}
-                        >
-                          <Settings size={14} /> Configure Bot &amp; Push Alerts
-                        </button>
                       </div>
                     </div>
                   </div>
