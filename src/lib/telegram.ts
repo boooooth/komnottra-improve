@@ -178,8 +178,15 @@ export async function notifyWorkspaceAlert(
 
     if (!message) return false;
 
-    const res = await sendTelegramMessage(workspace.telegramBotToken, workspace.telegramChatId, message);
-    return res.ok;
+    const chatIds = workspace.telegramChatId.split(',').map((s) => s.trim()).filter(Boolean);
+    if (chatIds.length === 0) return false;
+
+    let anySuccess = false;
+    for (const cid of chatIds) {
+      const res = await sendTelegramMessage(workspace.telegramBotToken, cid, message);
+      if (res.ok) anySuccess = true;
+    }
+    return anySuccess;
   } catch (err) {
     console.error('Failed to notify workspace alert:', err);
     return false;

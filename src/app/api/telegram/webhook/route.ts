@@ -34,9 +34,14 @@ export async function POST(req: NextRequest) {
     const chatId = String(message.chat.id);
     const text = message.text?.trim() || message.caption?.trim() || '';
 
-    // 1. Try to find workspace by telegramChatId
+    // 1. Try to find workspace by telegramChatId (single ID or list of IDs)
     let workspace = await prisma.workspace.findFirst({
-      where: { telegramChatId: chatId },
+      where: {
+        OR: [
+          { telegramChatId: chatId },
+          { telegramChatId: { contains: chatId } },
+        ],
+      },
     });
 
     // 2. Handle /start command (supports binding via /start <inviteCode>)
@@ -50,10 +55,19 @@ export async function POST(req: NextRequest) {
         });
 
         if (found) {
+          // Append chat ID if not already present
+          const existingIds = (found.telegramChatId || '')
+            .split(',')
+            .map((s: string) => s.trim())
+            .filter(Boolean);
+          if (!existingIds.includes(chatId)) {
+            existingIds.push(chatId);
+          }
+
           workspace = await prisma.workspace.update({
             where: { id: found.id },
             data: {
-              telegramChatId: chatId,
+              telegramChatId: existingIds.join(', '),
               telegramBotActive: true,
             },
           });
