@@ -106,6 +106,23 @@ export async function POST(req: NextRequest) {
         const receiptId = callbackData.replace('type_exp:', '');
         const r = await prisma.receipt.findUnique({ where: { id: receiptId } });
         if (r && token && messageId) {
+          // Trigger High-Spend Alert to Owner ONLY when confirmed as an Expense
+          const isUsd = r.currency === 'USD';
+          const rateVal = r.rate || ws.exchangeRate || 4100;
+          const usdVal = isUsd ? r.total : r.total / rateVal;
+
+          if (usdVal >= (ws.notifyHighSpendMin || 100) && ws.notifyHighSpend) {
+            notifyWorkspaceAlert(ws.id, 'HIGH_SPEND', {
+              payee: r.payee,
+              amountUsd: usdVal,
+              totalFormatted: isUsd ? `$${r.total.toFixed(2)}` : `${r.total.toLocaleString()} ៛`,
+              claimantName: r.submittedBy || 'Telegram User',
+              category: r.expenseCode || 'General',
+              department: r.department || 'General',
+              date: r.date,
+            }).catch((e) => console.error('Telegram receipt alert error:', e));
+          }
+
           await fetch(`https://api.telegram.org/bot${token}/editMessageText`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -113,13 +130,13 @@ export async function POST(req: NextRequest) {
               chat_id: cqChatId,
               message_id: messageId,
               parse_mode: 'HTML',
-              text: `⏳ <b>Recorded as Company Expense (Pending Review)!</b>\n\n` +
+              text: `⏳ <b>Confirmed as Company Expense (Pending Review)!</b>\n\n` +
                 `• <b>Merchant:</b> ${r.payee}\n` +
                 `• <b>Amount:</b> ${r.total} ${r.currency}\n` +
                 `• <b>Date:</b> ${r.date}\n` +
                 `• <b>Category:</b> ${r.expenseCode}\n` +
                 `• <b>Submitted By:</b> ${r.submittedBy || 'Telegram User'}\n\n` +
-                `<i>Sent to Workspace Approvals for owner review.</i>`,
+                `<i>Sent to Approvals tab for owner review.</i>`,
             }),
           });
         }
@@ -340,39 +357,24 @@ export async function POST(req: NextRequest) {
               },
             });
 
-            // Immediately Alert the Workspace Owner via Telegram if spend meets/exceeds threshold
-            const usdVal = isUsd ? parsed.total : parsed.total / activeRate;
-            if (usdVal >= (workspace.notifyHighSpendMin || 100) && workspace.notifyHighSpend) {
-              notifyWorkspaceAlert(workspace.id, 'HIGH_SPEND', {
-                payee: parsed.vendor || 'Merchant',
-                amountUsd: usdVal,
-                totalFormatted: isUsd ? `$${parsed.total.toFixed(2)}` : `${parsed.total.toLocaleString()} ៛`,
-                claimantName: telegramSenderName,
-                category: parsed.category || 'General',
-                department: parsed.department || 'General',
-                date: parsed.date,
-              }).catch((e) => console.error('Telegram receipt alert error:', e));
-            }
-
             // Reply with receipt details and interactive inline buttons for Expense vs Income
             await sendTelegramMessage(
               token,
               chatId,
-              `✅ <b>Receipt Scanned & Sent for Review!</b>\n\n` +
-                `• <b>Merchant:</b> ${parsed.vendor}\n` +
+              `📸 <b>Receipt Parsed Successfully!</b>\n\n` +
+                `• <b>Merchant / Payer:</b> ${parsed.vendor}\n` +
                 `• <b>Amount:</b> ${parsed.total} ${parsed.currency}\n` +
                 `• <b>Date:</b> ${parsed.date}\n` +
                 `• <b>Category:</b> ${parsed.category}\n` +
                 `• <b>TIN:</b> ${parsed.vendorTin || '—'}\n` +
-                `• <b>Submitted By:</b> ${telegramSenderName}\n` +
-                `• <b>Status:</b> ⏳ <b>Pending Review</b> in Dashboard\n\n` +
-                `<i>Is this a Spending (Expense) or Incoming (Revenue)?</i>`,
+                `• <b>Submitted By:</b> ${telegramSenderName}\n\n` +
+                `👉 <b>Please choose: Is this a Spending (Expense) or Incoming (Revenue)?</b>`,
               {
                 replyMarkup: {
                   inline_keyboard: [
                     [
                       { text: '🔴 Expense / Spending', callback_data: `type_exp:${receipt.id}` },
-                      { text: '🟢 Switch to Income / Inflow', callback_data: `type_inc:${receipt.id}` },
+                      { text: '🟢 Income / Inflow', callback_data: `type_inc:${receipt.id}` },
                     ],
                   ],
                 },
