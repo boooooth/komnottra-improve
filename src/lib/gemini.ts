@@ -125,20 +125,20 @@ Return ONLY the raw JSON object without markdown formatting.`;
   // 2. Fallback to Vision Gateway (OmniRoute / serka-space) if configured
   if (aiBaseUrl) {
     try {
-      const apiKey = process.env.AI_API_KEY || '';
-      if (!apiKey) {
-        console.warn('AI_BASE_URL is set but AI_API_KEY is missing');
-        return null;
-      }
+      const apiKey = process.env.AI_API_KEY || 'sk-omniroute';
       const model = process.env.CHAT_MODEL || 'serka-space';
       const imageUrl = `data:${mimeType};base64,${cleanBase64}`;
 
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      }
+
       const res = await fetch(`${aiBaseUrl.replace(/\/$/, '')}/chat/completions`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
+        headers,
         body: JSON.stringify({
           model,
           messages: [
