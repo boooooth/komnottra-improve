@@ -1,0 +1,111 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// 1. Users & Roles
+model User {
+  id               String      @id @default(uuid())
+  email            String      @unique
+  passwordHash     String?
+  name             String?
+  department       String?
+  image            String?
+  role             String      @default("MEMBER") // OWNER or MEMBER
+  workspaceId      String?
+  workspace        Workspace?  @relation(fields: [workspaceId], references: [id])
+  receipts         Receipt[]   @relation("ClaimantReceipts")
+  approvedReceipts Receipt[]   @relation("ApprovedReceipts")
+  createdAt        DateTime    @default(now())
+}
+
+// 2. Company Workspace & Settings
+model Workspace {
+  id              String            @id @default(uuid())
+  name            String
+  ownerId         String?
+  baseCurrency    String            @default("KHR") // Reporting currency: KHR or USD
+  exchangeRate    Float             @default(4100.0) // NBC or company fixed rate
+  rateMode        String            @default("NBC_AUTO") // NBC_AUTO or FIXED
+  flagMissingTin  Boolean           @default(true) // Cambodian tax compliance flag
+  inviteCode      String            @unique @default(uuid())
+
+  // Dynamic dropdown options stored as JSON string
+  departments     String            @default("[\"Administration\", \"Sales\", \"Engineering\", \"Operations\"]")
+  expenseCodes    String            @default("[\"6100 Office\", \"6200 Meals\", \"6300 Transport\", \"6400 Utilities\"]")
+  projects        String            @default("[\"GA-2026 General admin\", \"TRN-09 Staff training\", \"BD-2026 Business dev\"]")
+
+  users           User[]
+  invites         WorkspaceInvite[]
+  receipts        Receipt[]
+  columns         WorkspaceColumn[]
+  createdAt       DateTime          @default(now())
+}
+
+model WorkspaceInvite {
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  email       String
+  role        String    @default("MEMBER")
+  status      String    @default("PENDING") // PENDING, ACCEPTED
+  createdAt   DateTime  @default(now())
+
+  @@unique([workspaceId, email])
+}
+
+// 3. Dynamic Columns (Generalization engine)
+model WorkspaceColumn {
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  key         String
+  label       String
+  isVisible   Boolean   @default(true)
+  isRequired  Boolean   @default(false)
+  order       Int       @default(0)
+}
+
+// 4. Receipts (Exact match to spreadsheet columns + Deep Audit JSON)
+model Receipt {
+  id               String     @id @default(uuid())
+  workspaceId      String
+  workspace        Workspace  @relation(fields: [workspaceId], references: [id])
+
+  claimantId       String
+  claimant         User       @relation("ClaimantReceipts", fields: [claimantId], references: [id])
+
+  date             String     // e.g. "23/09/2026"
+  receiptNo        String?    // e.g. "INV-0451", "PA-88213"
+  payee            String     // e.g. "Stationery World", "PassApp ride"
+  vendorTin        String?    // e.g. "K001-100234567"
+  description      String?    // e.g. "Printer toner"
+  department       String?    // e.g. "Administration"
+  project          String?    // e.g. "GA-2026 General admin"
+  expenseCode      String?    // e.g. "6100 Office"
+  paymentMethod    String?    // e.g. "Cash", "ABA KHQR", "Bank transfer"
+
+  // Dual Currency calculations
+  currency         String     @default("KHR") // KHR or USD
+  rate             Float      @default(1.0)
+  amountExclVat    Float
+  vat              Float      @default(0.0)
+  total            Float
+  totalBaseEquiv   Float
+
+  // Status & Approval
+  status           String     @default("PENDING") // PENDING, APPROVED, REIMBURSED, REJECTED
+  approvedById     String?
+  approvedBy       User?      @relation("ApprovedReceipts", fields: [approvedById], references: [id])
+  rejectionReason  String?
+
+  // Image & Audit Metadata
+  imageUrl         String
+  rawExtractedJson String?    // Stores line items, cashier, address, etc.
+
+  createdAt        DateTime   @default(now())
+}
