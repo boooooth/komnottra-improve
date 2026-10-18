@@ -608,6 +608,7 @@ export default function KomnottraApp() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          token: workspaceSettings.telegramBotToken,
           botToken: workspaceSettings.telegramBotToken,
           chatId: workspaceSettings.telegramChatId,
         }),

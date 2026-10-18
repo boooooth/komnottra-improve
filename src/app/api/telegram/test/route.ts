@@ -11,7 +11,8 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { token, chatId } = body;
+    const token = body.token || body.botToken;
+    const chatId = body.chatId;
 
     if (!token) {
       return NextResponse.json({ success: false, error: 'Bot token is required' }, { status: 400 });
