@@ -3086,6 +3086,7 @@
 .authBrandText {
   display: flex;
   align-items: baseline;
+  justify-content: center;
   gap: 8px;
   flex-wrap: wrap;
 }
@@ -3242,28 +3243,15 @@
 }
 
 .onboardingWelcome {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  background: #FFFFFF;
-  border: 1px solid #ECE6DE;
-  padding: 5px 14px;
-  border-radius: 9999px;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 13px;
   color: #7A222B;
-  letter-spacing: 0.04em;
+  font-weight: 700;
   text-transform: uppercase;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-}
-
-.onboardingWelcomeDot {
-  width: 7px;
-  height: 7px;
-  background-color: #10B981;
-  border-radius: 50%;
-  display: inline-block;
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .onboardingTitle {
@@ -3316,28 +3304,16 @@
   gap: 16px;
 }
 
-.onboardingCardIconCreate {
+.onboardingCardIcon {
   width: 48px;
   height: 48px;
   border-radius: 14px;
-  background: #FDF2F4;
-  border: 1px solid #F5D2D7;
+  background: #FFF8E6;
+  border: 1px solid #F3DA95;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #7A222B;
-}
-
-.onboardingCardIconJoin {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  background: #F3F5F7;
-  border: 1px solid #E1E6EB;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #374151;
+  font-size: 24px;
 }
 
 .onboardingCardTitle {
@@ -3353,31 +3329,6 @@
   font-size: 13.5px;
   color: #7D736A;
   line-height: 1.45;
-}
-
-.onboardingFeaturesList {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  margin: 6px 0 0 0;
-  padding: 12px 14px;
-  background: #FAF8F5;
-  border-radius: 12px;
-  border: 1px solid #F0ECE4;
-}
-
-.onboardingFeatureItem {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12.5px;
-  color: #5C5248;
-  font-weight: 500;
-}
-
-.onboardingFeatureIcon {
-  color: #10B981;
-  flex-shrink: 0;
 }
 
 .onboardingInput {
