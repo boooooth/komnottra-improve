@@ -8,7 +8,7 @@ FROM base AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY prisma ./prisma/
-RUN --mount=type=cache,target=/root/.npm npm ci
+RUN npm ci
 
 # 2. Build the application
 FROM base AS builder
@@ -22,7 +22,7 @@ RUN npx prisma generate
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
-RUN --mount=type=cache,target=/app/.next/cache npm run build
+RUN npm run build
 
 # 3. Production runner
 FROM base AS runner
