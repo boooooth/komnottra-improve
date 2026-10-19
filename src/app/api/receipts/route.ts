@@ -322,9 +322,23 @@ export async function PATCH(req: NextRequest) {
     const { id, ids, status, rejectionReason, ...updateFields } = body;
 
     const session = await getCurrentUser();
+    if (!session || !session.workspaceId) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
     const owner = await prisma.user.findFirst({
       where: { role: 'OWNER' },
     });
+
+    // Enforce that only workspace owners can approve, reimburse, or reject receipts
+    if (status && (status === 'APPROVED' || status === 'REIMBURSED' || status === 'REJECTED')) {
+      if (session.role !== 'OWNER') {
+        return NextResponse.json(
+          { success: false, error: 'Permission denied: Only workspace owners can approve or reject receipts' },
+          { status: 403 }
+        );
+      }
+    }
 
     // Support batch approve / update for multiple receipts
     if (ids && Array.isArray(ids) && ids.length > 0) {
@@ -404,6 +418,14 @@ export async function PATCH(req: NextRequest) {
       dataToUpdate.rejectionReason = rejectionReason;
     }
 
+    const existingReceipt = await prisma.receipt.findUnique({ where: { id } });
+    if (!existingReceipt) {
+      return NextResponse.json({
+        success: false,
+        error: 'This receipt no longer exists in the database. Please refresh your browser to sync.',
+      }, { status: 404 });
+    }
+
     const updated = await prisma.receipt.update({
       where: { id },
       data: dataToUpdate,
@@ -429,7 +451,7 @@ export async function DELETE(req: NextRequest) {
     if (!id) {
       return NextResponse.json({ success: false, error: 'Receipt ID required' }, { status: 400 });
     }
-    await prisma.receipt.delete({ where: { id } });
+    await prisma.receipt.deleteMany({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message || 'Failed to delete receipt' }, { status: 500 });

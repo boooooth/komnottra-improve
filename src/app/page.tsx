@@ -64,7 +64,7 @@ import {
   ZoomIn,
   ZoomOut,
   BarChart3,
-  LineChart,
+  PieChart,
   DollarSign,
   Send,
   Bot,
@@ -517,23 +517,44 @@ export default function KomnottraApp() {
   useEffect(() => {
     const pendingReceipts = receipts
       .filter((r: ReceiptData) => r.status === 'PENDING')
-      .map((r: ReceiptData) => ({
-        id: r.id,
-        itemType: 'EXPENSE' as const,
-        vendor: r.payee,
-        claimant: r.submittedBy || r.claimant?.name || r.claimant?.email || 'Staff member',
-        submittedBy: r.submittedBy || r.claimant?.name || r.claimant?.email || 'Staff member',
-        date: r.date,
-        category: r.expenseCode || 'General',
-        total: r.total,
-        currency: r.currency,
-        vat: r.vat,
-        flag: r.vendorTin === '—' ? 'Missing TIN' : 'Expense Claim',
-        note: r.description || 'Submitted expense claim',
-        imageUrl: r.imageUrl,
-        rawReceipt: r,
-        createdAt: r.createdAt,
-      }));
+      .map((r: ReceiptData) => {
+        const isDupe = receipts.some(
+          (other) =>
+            other.id !== r.id &&
+            other.payee?.toLowerCase().trim() === r.payee?.toLowerCase().trim() &&
+            other.date === r.date &&
+            other.total === r.total
+        );
+        const usdVal = r.currency === 'USD' ? r.total : r.total / (workspaceSettings.exchangeRate || 4100);
+        const isHigh = usdVal >= (workspaceSettings.notifyHighSpendMin || 100);
+
+        let flag = 'Expense Claim';
+        if (isDupe) {
+          flag = 'Potential Duplicate';
+        } else if (isHigh) {
+          flag = 'Unusual High Spend';
+        } else if (!r.vendorTin || r.vendorTin === '—' || r.vendorTin.trim().length <= 3) {
+          flag = 'Missing TIN';
+        }
+
+        return {
+          id: r.id,
+          itemType: 'EXPENSE' as const,
+          vendor: r.payee,
+          claimant: r.submittedBy || r.claimant?.name || r.claimant?.email || 'Staff member',
+          submittedBy: r.submittedBy || r.claimant?.name || r.claimant?.email || 'Staff member',
+          date: r.date,
+          category: r.expenseCode || 'General',
+          total: r.total,
+          currency: r.currency,
+          vat: r.vat,
+          flag,
+          note: r.description || 'Submitted expense claim',
+          imageUrl: r.imageUrl,
+          rawReceipt: r,
+          createdAt: r.createdAt,
+        };
+      });
 
     const pendingIncomes = incomes
       .filter((inc: any) => inc.status === 'PENDING')
@@ -619,6 +640,69 @@ export default function KomnottraApp() {
   // Executive Analytics & Predictive Runway State
   const [analyticsData, setAnalyticsData] = useState<any | null>(null);
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState<boolean>(false);
+  const [analyticsPeriod, setAnalyticsPeriod] = useState<'THIS_MONTH' | 'LAST_MONTH' | 'THIS_YEAR' | 'ALL' | 'CUSTOM_MONTH'>('THIS_MONTH');
+  const [analyticsSelectedMonth, setAnalyticsSelectedMonth] = useState<string>('AUTO');
+  const [activePieTab, setActivePieTab] = useState<'CATEGORY' | 'DEPARTMENT' | 'CASHFLOW_SPLIT'>('CATEGORY');
+
+  const renderMicroSparkline = (
+    points: Array<{ label: string; amount: number; payee?: string; client?: string }>,
+    strokeColor: string,
+    gradientId: string,
+    emptyLabel: string
+  ) => {
+    if (!points || points.length === 0) {
+      return (
+        <svg className={styles.sparklineSvg} viewBox="0 0 200 44">
+          <line x1="10" y1="26" x2="190" y2="26" stroke="#EFE8DE" strokeWidth="1.5" strokeDasharray="4 4" />
+          <circle cx="100" cy="26" r="3" fill="#D1D5DB" />
+          <text x="100" y="38" textAnchor="middle" fontSize="9" fill="#9CA3AF" fontWeight="600">
+            {emptyLabel}
+          </text>
+        </svg>
+      );
+    }
+
+    const amounts = points.map((p) => p.amount);
+    const maxVal = Math.max(...amounts, 1);
+    const minVal = Math.min(...amounts, 0);
+    const range = maxVal - minVal || 1;
+
+    const coords = points.map((p, idx) => {
+      const x = points.length === 1 ? 100 : 15 + (idx / (points.length - 1)) * 170;
+      const y = 36 - ((p.amount - minVal) / range) * 26;
+      return { x, y, ...p };
+    });
+
+    const lineD = coords.reduce(
+      (acc, c, idx) => `${acc} ${idx === 0 ? 'M' : 'L'} ${c.x.toFixed(1)},${c.y.toFixed(1)}`,
+      ''
+    );
+    const areaD = `${lineD} L ${coords[coords.length - 1].x.toFixed(1)},42 L ${coords[0].x.toFixed(1)},42 Z`;
+
+    return (
+      <svg className={styles.sparklineSvg} viewBox="0 0 200 44">
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={strokeColor} stopOpacity="0.25" />
+            <stop offset="100%" stopColor={strokeColor} stopOpacity="0.0" />
+          </linearGradient>
+        </defs>
+        <path d={areaD} fill={`url(#${gradientId})`} />
+        <path d={lineD} fill="none" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        {coords.map((c, i) => (
+          <circle
+            key={i}
+            cx={c.x}
+            cy={c.y}
+            r={c.amount === maxVal ? 4 : 2.5}
+            fill="#FFFFFF"
+            stroke={strokeColor}
+            strokeWidth="2"
+          />
+        ))}
+      </svg>
+    );
+  };
 
   // Inflow & Company Billing State
   const [isLoadingIncomes, setIsLoadingIncomes] = useState<boolean>(false);
@@ -641,10 +725,16 @@ export default function KomnottraApp() {
   const [isTestingTelegram, setIsTestingTelegram] = useState<boolean>(false);
   const [telegramTestResult, setTelegramTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = async (periodOverride?: string, monthOverride?: string) => {
     setIsLoadingAnalytics(true);
     try {
-      const res = await fetch('/api/analytics');
+      const activePeriod = periodOverride !== undefined ? periodOverride : analyticsPeriod;
+      const activeMonth = monthOverride !== undefined ? monthOverride : analyticsSelectedMonth;
+      const params = new URLSearchParams();
+      if (activePeriod) params.set('period', activePeriod);
+      if (activeMonth && activeMonth !== 'AUTO') params.set('month', activeMonth);
+
+      const res = await fetch(`/api/analytics?${params.toString()}`);
       const data = await res.json();
       if (data.success) {
         setAnalyticsData(data);
@@ -2666,18 +2756,14 @@ export default function KomnottraApp() {
               <div
                 className={`${styles.navMenuItem} ${activeScreen === 'approvals' ? styles.navMenuItemActive : ''}`}
                 onClick={() => {
-                  if (currentUser?.role === 'OWNER') {
-                    setActiveScreen('approvals');
-                  } else {
-                    alert('Approvals are reserved for Company Finance Leads. Your submitted receipts are currently pending review.');
-                  }
+                  setActiveScreen('approvals');
                   setIsMobileSidebarOpen(false);
                 }}
               >
                 <div className={styles.navItemLeft}>
                   <CheckSquare size={16} /> {t.approvals}
                 </div>
-                {currentUser?.role === 'OWNER' && (
+                {approvalQueue.length > 0 && (
                   <span className={styles.badgePillCounter}>{approvalQueue.length}</span>
                 )}
               </div>
@@ -3033,6 +3119,15 @@ export default function KomnottraApp() {
                         <div>
                           <div className={styles.actionTitle}>{t.uploadFiles}</div>
                           <div className={styles.actionDesc}>{t.uploadDesc}</div>
+                        </div>
+                      </div>
+                      <div className={styles.actionCard} onClick={() => setIsIncomeModalOpen(true)}>
+                        <div className={styles.actionIconBubble} style={{ background: '#ECFDF5' }}>
+                          <DollarSign size={20} color="#15803D" />
+                        </div>
+                        <div>
+                          <div className={styles.actionTitle}>Record Income</div>
+                          <div className={styles.actionDesc}>Log client payment or bill</div>
                         </div>
                       </div>
                     </div>
@@ -4349,9 +4444,18 @@ export default function KomnottraApp() {
                       Combined ledger of all verified company incomes &amp; expenses · Only approved items are reflected in official statements
                     </div>
                   </div>
-                  <button className={styles.btnScanGold} style={{ width: 'auto', margin: 0, padding: '10px 18px', display: 'inline-flex', alignItems: 'center', gap: '6px' }} onClick={handleExportExcel}>
-                    <Download size={15} /> Export Combined Excel (.xlsx)
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className={styles.btnRecordIncomeHeader}
+                      onClick={() => setIsIncomeModalOpen(true)}
+                    >
+                      <Plus size={16} /> Record Income / Bill
+                    </button>
+                    <button className={styles.btnScanGold} style={{ width: 'auto', margin: 0, padding: '10px 18px', display: 'inline-flex', alignItems: 'center', gap: '6px' }} onClick={handleExportExcel}>
+                      <Download size={15} /> Export Combined Excel (.xlsx)
+                    </button>
+                  </div>
                 </div>
 
                 {/* KPI Summary Cards at the top of the combined report */}
@@ -5247,7 +5351,7 @@ export default function KomnottraApp() {
                     <button
                       type="button"
                       className={styles.btnHeaderOutline}
-                      onClick={fetchAnalytics}
+                      onClick={() => fetchAnalytics()}
                       disabled={isLoadingAnalytics}
                     >
                       <RefreshCw size={14} className={isLoadingAnalytics ? styles.spinner : ''} />
@@ -5256,152 +5360,599 @@ export default function KomnottraApp() {
                   </div>
                 </div>
 
-                {/* Top Metrics Row */}
+                {/* Period Filter Bar */}
+                <div className={styles.analyticsFilterBar}>
+                  <div className={styles.filterPillGroup}>
+                    <button
+                      type="button"
+                      className={`${styles.filterPill} ${analyticsPeriod === 'THIS_MONTH' ? styles.filterPillActive : ''}`}
+                      onClick={() => {
+                        setAnalyticsPeriod('THIS_MONTH');
+                        setAnalyticsSelectedMonth('AUTO');
+                        fetchAnalytics('THIS_MONTH', 'AUTO');
+                      }}
+                    >
+                      <Calendar size={13} /> This Month
+                    </button>
+                    <button
+                      type="button"
+                      className={`${styles.filterPill} ${analyticsPeriod === 'LAST_MONTH' ? styles.filterPillActive : ''}`}
+                      onClick={() => {
+                        setAnalyticsPeriod('LAST_MONTH');
+                        setAnalyticsSelectedMonth('AUTO');
+                        fetchAnalytics('LAST_MONTH', 'AUTO');
+                      }}
+                    >
+                      Last Month
+                    </button>
+                    <button
+                      type="button"
+                      className={`${styles.filterPill} ${analyticsPeriod === 'THIS_YEAR' ? styles.filterPillActive : ''}`}
+                      onClick={() => {
+                        setAnalyticsPeriod('THIS_YEAR');
+                        setAnalyticsSelectedMonth('AUTO');
+                        fetchAnalytics('THIS_YEAR', 'AUTO');
+                      }}
+                    >
+                      This Year
+                    </button>
+                    <button
+                      type="button"
+                      className={`${styles.filterPill} ${analyticsPeriod === 'ALL' ? styles.filterPillActive : ''}`}
+                      onClick={() => {
+                        setAnalyticsPeriod('ALL');
+                        setAnalyticsSelectedMonth('AUTO');
+                        fetchAnalytics('ALL', 'AUTO');
+                      }}
+                    >
+                      All Time
+                    </button>
+                  </div>
+
+                  <div className={styles.filterRightControls}>
+                    <div className={styles.filterMonthSelectWrapper}>
+                      <Calendar size={14} color="#8C8075" />
+                      <select
+                        className={styles.filterMonthSelect}
+                        value={analyticsPeriod === 'CUSTOM_MONTH' ? analyticsSelectedMonth : 'AUTO'}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === 'AUTO') {
+                            setAnalyticsPeriod('ALL');
+                            setAnalyticsSelectedMonth('AUTO');
+                            fetchAnalytics('ALL', 'AUTO');
+                          } else {
+                            setAnalyticsPeriod('CUSTOM_MONTH');
+                            setAnalyticsSelectedMonth(val);
+                            fetchAnalytics('CUSTOM_MONTH', val);
+                          }
+                        }}
+                      >
+                        <option value="AUTO">📅 Jump to Specific Month...</option>
+                        {analyticsData?.period?.availableMonths?.map((m: any) => (
+                          <option key={m.key} value={m.key}>
+                            {m.label} ({m.count} records)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className={styles.filterActiveTag}>
+                      <span>
+                        Viewing: <strong>
+                          {analyticsPeriod === 'THIS_MONTH'
+                            ? `This Month (${analyticsData?.period?.currentMonthKey || 'Active'})`
+                            : analyticsPeriod === 'LAST_MONTH'
+                            ? `Last Month (${analyticsData?.period?.lastMonthKey || 'Previous'})`
+                            : analyticsPeriod === 'THIS_YEAR'
+                            ? `Year ${analyticsData?.period?.currentYearKey || '2026'}`
+                            : analyticsPeriod === 'CUSTOM_MONTH'
+                            ? `Month ${analyticsSelectedMonth}`
+                            : 'All Time (Full Lifetime)'}
+                        </strong>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Top Metrics Row with Micro-Visual Graphs */}
+                {/* Consolidated 3-Card Executive Deck: Low Clutter, High Visual Impact */}
                 <div className={styles.analyticsMetricsGrid}>
-                  {/* Runway Clock */}
+                  {/* Card 1: Net Cashflow Balance & Proportional Donut */}
                   <div className={styles.analyticsCard}>
-                    <div className={styles.analyticsCardTitle}>
-                      <Clock size={16} color="#7A222B" /> Cash Runway Clock
+                    <div className={styles.analyticsCardHeader}>
+                      <div className={styles.analyticsCardTitle}>
+                        <TrendingUp size={16} color={(analyticsData?.metrics?.netCashflowUsd || 0) >= 0 ? '#10B981' : '#EF4444'} /> Net Cashflow &amp; Flow
+                      </div>
+                      <span
+                        className={`${styles.analyticsBadge} ${
+                          (analyticsData?.metrics?.netCashflowUsd || 0) >= 0 ? styles.badgeHealthy : styles.badgeCritical
+                        }`}
+                      >
+                        {(analyticsData?.metrics?.netCashflowUsd || 0) >= 0 ? '+ Surplus' : '- Deficit'}
+                      </span>
                     </div>
-                    <div className={styles.analyticsCardValue} style={{ color: (analyticsData?.metrics?.runwayMonths || 0) < 3 ? '#DC2626' : '#1F1916' }}>
-                      {analyticsData?.metrics?.runwayMonths !== undefined ? `${analyticsData.metrics.runwayMonths} mo` : '—'}
+
+                    {/* Donut Chart Visual: Green Inflow vs Red Outflow with Net Cashflow in Center */}
+                    {(() => {
+                      const inc = analyticsData?.metrics?.totalIncomeUsd || 0;
+                      const exp = analyticsData?.metrics?.totalExpenseUsd || 0;
+                      const totalFlow = inc + exp;
+                      const incPct = totalFlow > 0 ? (inc / totalFlow) * 100 : 0;
+                      const expPct = totalFlow > 0 ? 100 - incPct : (exp > 0 ? 100 : 0);
+                      
+                      const circumference = 150.8; // 2 * Math.PI * 24
+                      const incOffset = circumference - (incPct / 100) * circumference;
+                      const expOffset = circumference - (expPct / 100) * circumference;
+                      const netVal = analyticsData?.metrics?.netCashflowUsd || 0;
+                      const isPositive = netVal >= 0;
+
+                      return (
+                        <div className={styles.cardDonutRow}>
+                          <div className={styles.cardDonutWrapper}>
+                            <svg viewBox="0 0 60 60" className={styles.cardDonutSvg}>
+                              {/* Background ring */}
+                              <circle cx="30" cy="30" r="24" fill="none" stroke="#F3ECE2" strokeWidth="6" />
+                              
+                              {/* Inflow segment (Green) */}
+                              {totalFlow > 0 && incPct > 0 && (
+                                <circle
+                                  cx="30"
+                                  cy="30"
+                                  r="24"
+                                  fill="none"
+                                  stroke="#10B981"
+                                  strokeWidth="6"
+                                  strokeDasharray={circumference}
+                                  strokeDashoffset={incOffset}
+                                  strokeLinecap="round"
+                                  style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+                                />
+                              )}
+                              
+                              {/* Outflow segment (Red) */}
+                              {totalFlow > 0 && expPct > 0 && (
+                                <circle
+                                  cx="30"
+                                  cy="30"
+                                  r="24"
+                                  fill="none"
+                                  stroke="#EF4444"
+                                  strokeWidth="6"
+                                  strokeDasharray={circumference}
+                                  strokeDashoffset={expOffset}
+                                  strokeLinecap="round"
+                                  style={{
+                                    transform: `rotate(${incPct * 3.6}deg)`,
+                                    transformOrigin: '30px 30px',
+                                    transition: 'all 0.6s ease'
+                                  }}
+                                />
+                              )}
+                              {totalFlow === 0 && (
+                                <circle cx="30" cy="30" r="24" fill="none" stroke="#E5E7EB" strokeWidth="6" />
+                              )}
+                            </svg>
+                            <div className={styles.cardDonutCenter}>
+                              <span className={styles.cardDonutCenterVal} style={{ color: isPositive ? '#10B981' : '#EF4444' }}>
+                                {isPositive ? '+' : '-'}${Math.abs(Math.round(netVal)).toLocaleString()}
+                              </span>
+                              <span className={styles.cardDonutCenterSub} style={{ color: isPositive ? '#10B981' : '#EF4444' }}>
+                                {isPositive ? 'Surplus' : 'Deficit'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Clean Visual Legend: No redundant micro numbers */}
+                          <div className={styles.cardDonutLegend}>
+                            <div className={styles.cardDonutItem}>
+                              <div className={styles.cardDonutItemLabel}>
+                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981' }} />
+                                <span>Inflow</span>
+                              </div>
+                              <span className={styles.cardDonutItemVal} style={{ color: '#10B981' }}>
+                                ${Math.round(inc).toLocaleString()}
+                              </span>
+                            </div>
+
+                            <div className={styles.cardDonutItem}>
+                              <div className={styles.cardDonutItemLabel}>
+                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#EF4444' }} />
+                                <span>Outflow</span>
+                              </div>
+                              <span className={styles.cardDonutItemVal} style={{ color: '#EF4444' }}>
+                                ${Math.round(exp).toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Proportional Balance Bar */}
+                    <div className={styles.cashflowBarWrapper} style={{ marginTop: '2px' }}>
+                      {(() => {
+                        const inc = analyticsData?.metrics?.totalIncomeUsd || 0;
+                        const exp = analyticsData?.metrics?.totalExpenseUsd || 0;
+                        const totalFlow = inc + exp;
+                        const incPct = totalFlow > 0 ? Math.round((inc / totalFlow) * 100) : 0;
+                        const expPct = totalFlow > 0 ? 100 - incPct : exp > 0 ? 100 : 0;
+                        return (
+                          <div className={styles.balanceTrack}>
+                            <div className={styles.balanceInflowSeg} style={{ width: `${incPct}%` }} title={`Inflow: ${incPct}%`} />
+                            <div className={styles.balanceOutflowSeg} style={{ width: `${expPct}%` }} title={`Outflow: ${expPct}%`} />
+                          </div>
+                        );
+                      })()}
                     </div>
+                  </div>
+
+                  {/* Card 2: Cash Runway & 30-Day Forecast Horizon */}
+                  <div className={styles.analyticsCard}>
+                    <div className={styles.analyticsCardHeader}>
+                      <div className={styles.analyticsCardTitle}>
+                        <Clock size={16} color="#7A222B" /> Cash Runway &amp; Horizon
+                      </div>
+                      <span
+                        className={`${styles.analyticsBadge} ${
+                          (analyticsData?.metrics?.runwayMonths || 0) < 3
+                            ? styles.badgeCritical
+                            : (analyticsData?.metrics?.runwayMonths || 0) < 6
+                            ? styles.badgeCaution
+                            : styles.badgeHealthy
+                        }`}
+                      >
+                        {(analyticsData?.metrics?.runwayMonths || 0) < 3
+                          ? 'Critical (< 3 mo)'
+                          : (analyticsData?.metrics?.runwayMonths || 0) < 6
+                          ? 'Caution (3-6 mo)'
+                          : 'Optimal (6+ mo)'}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                      <div
+                        className={styles.analyticsCardValue}
+                        style={{ color: (analyticsData?.metrics?.runwayMonths || 0) < 3 ? '#DC2626' : '#1F1916' }}
+                      >
+                        {analyticsData?.metrics?.runwayMonths !== undefined ? `${analyticsData.metrics.runwayMonths} mo` : '—'}
+                      </div>
+                      <span style={{ fontSize: '11px', color: '#8C8075', fontWeight: 600 }}>
+                        (burn: ${Math.round(analyticsData?.metrics?.monthlyBurnUsd || 0).toLocaleString()}/mo)
+                      </span>
+                    </div>
+
+                    {/* Clean 3-Tier Runway Health Meter */}
+                    <div className={styles.analyticsMicroChart} style={{ height: '32px', margin: '4px 0' }}>
+                      <div className={styles.runwayMeterWrapper}>
+                        <div className={styles.runwayTrack}>
+                          <div className={styles.runwaySegmentCrit} title="Critical (< 3 mo)" />
+                          <div className={styles.runwaySegmentCaut} title="Caution (3-6 mo)" />
+                          <div className={styles.runwaySegmentSafe} title="Healthy (6+ mo)" />
+                          <div
+                            className={styles.runwayIndicatorDot}
+                            style={{
+                              left: `${Math.min(95, Math.max(5, (((analyticsData?.metrics?.runwayMonths || 0) / 12) * 100)))}%`,
+                            }}
+                            title={`Runway: ${analyticsData?.metrics?.runwayMonths || 0} months`}
+                          />
+                        </div>
+                        <div className={styles.runwayLabels}>
+                          <span style={{ color: '#EF4444' }}>&lt; 3 mo</span>
+                          <span style={{ color: '#F59E0B' }}>3 - 6 mo</span>
+                          <span style={{ color: '#10B981' }}>6+ mo</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Integrated AI Forecast Banner */}
+                    <div className={styles.forecastBanner}>
+                      <Sparkles size={13} color="#D97706" />
+                      <span>
+                        30-Day AI Forecast: ~${Math.round(analyticsData?.metrics?.nextMonthForecastUsd || 0).toLocaleString()} projected
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Card 3: GDT Tax & Audit Readiness */}
+                  <div className={styles.analyticsCard}>
+                    <div className={styles.analyticsCardHeader}>
+                      <div className={styles.analyticsCardTitle}>
+                        <ShieldCheck size={16} color="#7A222B" /> GDT Tax &amp; Audit Readiness
+                      </div>
+                      <span
+                        className={`${styles.analyticsBadge} ${
+                          (analyticsData?.metrics?.taxComplianceScore ?? 100) >= 70 ? styles.badgeHealthy : styles.badgeCaution
+                        }`}
+                      >
+                        {(analyticsData?.metrics?.taxComplianceScore ?? 100) >= 70 ? 'Compliant' : 'Audit Attention'}
+                      </span>
+                    </div>
+
+                    {/* Visual Radial Ring with Large Centered Score */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', margin: '6px 0' }}>
+                      {(() => {
+                        const score = analyticsData?.metrics?.taxComplianceScore ?? 100;
+                        const circumference = 150.8; // 2 * Math.PI * 24
+                        const strokeDashoffset = circumference - (score / 100) * circumference;
+                        const strokeColor = score >= 80 ? '#10B981' : score >= 50 ? '#F59E0B' : '#EF4444';
+                        return (
+                          <div style={{ position: 'relative', width: '64px', height: '64px', flexShrink: 0 }}>
+                            <svg viewBox="0 0 60 60" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
+                              <circle cx="30" cy="30" r="24" fill="none" stroke="#F3ECE2" strokeWidth="6" />
+                              <circle
+                                cx="30"
+                                cy="30"
+                                r="24"
+                                fill="none"
+                                stroke={strokeColor}
+                                strokeWidth="6"
+                                strokeDasharray={circumference}
+                                strokeDashoffset={strokeDashoffset}
+                                strokeLinecap="round"
+                                style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+                              />
+                            </svg>
+                            <div
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '13px',
+                                fontWeight: 800,
+                                color: strokeColor,
+                              }}
+                            >
+                              {score}%
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 800, color: '#1F1916' }}>
+                          {analyticsData?.metrics?.receiptsWithTinCount || 0} of {analyticsData?.metrics?.totalReceipts || 0} with Valid TIN
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#8C8075', fontWeight: 600 }}>
+                          {(analyticsData?.metrics?.taxComplianceScore ?? 100) >= 70
+                            ? 'Receipts qualify for VAT input tax deduction'
+                            : 'Unregistered vendor receipts cannot deduct VAT'}
+                        </div>
+                      </div>
+                    </div>
+
                     <div className={styles.analyticsCardSub} style={{ color: '#8C8075' }}>
-                      <span>Avg burn: ${Math.round(analyticsData?.metrics?.monthlyBurnUsd || 0).toLocaleString()}/mo</span>
-                    </div>
-                  </div>
-
-                  {/* Net Cashflow Dual Currency */}
-                  <div className={styles.analyticsCard}>
-                    <div className={styles.analyticsCardTitle}>
-                      <TrendingUp size={16} color="#10B981" /> Net Cashflow
-                    </div>
-                    <div className={styles.analyticsCardValue} style={{ color: (analyticsData?.metrics?.netCashflowUsd || 0) >= 0 ? '#10B981' : '#EF4444' }}>
-                      {(analyticsData?.metrics?.netCashflowUsd || 0) >= 0 ? '+' : '-'}${Math.abs(Math.round(analyticsData?.metrics?.netCashflowUsd || 0)).toLocaleString()}
-                    </div>
-                    <div className={styles.analyticsCardSub} style={{ color: '#8C8075' }}>
-                      <span>{(analyticsData?.metrics?.netCashflowKhr || 0) >= 0 ? '+' : '-'}៛{Math.abs(Math.round(analyticsData?.metrics?.netCashflowKhr || 0)).toLocaleString()} Riel total</span>
-                    </div>
-                  </div>
-
-                  {/* Total Income Inflow */}
-                  <div className={styles.analyticsCard}>
-                    <div className={styles.analyticsCardTitle}>
-                      <ArrowDownLeft size={16} color="#10B981" /> Total Inflow
-                    </div>
-                    <div className={styles.analyticsCardValue}>
-                      ${Math.round(analyticsData?.metrics?.totalIncomeUsd || 0).toLocaleString()}
-                    </div>
-                    <div className={styles.analyticsCardSub} style={{ color: '#10B981' }}>
-                      <span>{analyticsData?.metrics?.totalIncomes || 0} recorded invoices</span>
-                    </div>
-                  </div>
-
-                  {/* Total Expense Outflow */}
-                  <div className={styles.analyticsCard}>
-                    <div className={styles.analyticsCardTitle}>
-                      <ArrowUpRight size={16} color="#EF4444" /> Total Outflow
-                    </div>
-                    <div className={styles.analyticsCardValue}>
-                      ${Math.round(analyticsData?.metrics?.totalExpenseUsd || 0).toLocaleString()}
-                    </div>
-                    <div className={styles.analyticsCardSub} style={{ color: '#EF4444' }}>
-                      <span>{analyticsData?.metrics?.totalReceipts || 0} scanned receipts</span>
-                    </div>
-                  </div>
-
-                  {/* Next 30 Days Forecast */}
-                  <div className={styles.analyticsCard}>
-                    <div className={styles.analyticsCardTitle}>
-                      <Sparkles size={16} color="#E8BA5A" /> 30-Day AI Forecast
-                    </div>
-                    <div className={styles.analyticsCardValue}>
-                      ~${Math.round(analyticsData?.metrics?.nextMonthForecastUsd || 0).toLocaleString()}
-                    </div>
-                    <div className={styles.analyticsCardSub} style={{ color: '#8C8075' }}>
-                      <span>៛{Math.round(analyticsData?.metrics?.nextMonthForecastKhr || 0).toLocaleString()} projected</span>
-                    </div>
-                  </div>
-
-                  {/* Tax Compliance Score */}
-                  <div className={styles.analyticsCard}>
-                    <div className={styles.analyticsCardTitle}>
-                      <ShieldCheck size={16} color="#7A222B" /> GDT Tax Compliance
-                    </div>
-                    <div className={styles.analyticsCardValue}>
-                      {analyticsData?.metrics?.taxComplianceScore ?? 100}%
-                    </div>
-                    <div className={styles.analyticsCardSub} style={{ color: (analyticsData?.metrics?.taxComplianceScore ?? 100) >= 70 ? '#10B981' : '#F59E0B' }}>
-                      <span>Valid TIN &amp; invoice rate</span>
+                      <span>Cambodian General Department of Taxation (GDT) format</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Visual Chart & Split Breakdown */}
                 <div className={styles.analyticsTwoCol}>
-                  {/* Left Column: Monthly Timeline Inflow vs Outflow */}
+                  {/* Left Column: Capital Deployment & Spend Distribution Pie / Donut Chart */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    {/* Capital Deployment & Spend Distribution Pie / Donut Chart */}
                     <div className={styles.settingsCard} style={{ margin: 0 }}>
-                      <div className={styles.settingsCardHeader}>
+                      <div className={styles.settingsCardHeader} style={{ flexWrap: 'wrap', gap: '10px' }}>
                         <div>
                           <div className={styles.settingsCardTitle} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <LineChart size={18} /> Monthly Cashflow Comparison (Inflow vs Outflow)
+                            <PieChart size={18} color="#7A222B" /> Capital Deployment &amp; Spend Distribution
                           </div>
                           <div className={styles.settingsCardDesc}>
-                            Net balance comparison showing revenue collected vs business expense burn.
+                            Proportional allocation breakdown across spending categories, teams, or cashflow.
                           </div>
+                        </div>
+
+                        {/* Interactive Mode Tabs */}
+                        <div className={styles.pieTabGroup}>
+                          <button
+                            type="button"
+                            className={`${styles.pieTab} ${activePieTab === 'CATEGORY' ? styles.pieTabActive : ''}`}
+                            onClick={() => setActivePieTab('CATEGORY')}
+                          >
+                            <Tag size={12} /> Category
+                          </button>
+                          <button
+                            type="button"
+                            className={`${styles.pieTab} ${activePieTab === 'DEPARTMENT' ? styles.pieTabActive : ''}`}
+                            onClick={() => setActivePieTab('DEPARTMENT')}
+                          >
+                            <Building2 size={12} /> Department
+                          </button>
+                          <button
+                            type="button"
+                            className={`${styles.pieTab} ${activePieTab === 'CASHFLOW_SPLIT' ? styles.pieTabActive : ''}`}
+                            onClick={() => setActivePieTab('CASHFLOW_SPLIT')}
+                          >
+                            <TrendingUp size={12} /> Cashflow Split
+                          </button>
                         </div>
                       </div>
 
-                      <div className={styles.timelineChartWrap}>
-                        {analyticsData?.timeline && analyticsData.timeline.length > 0 ? (
-                          analyticsData.timeline.map((item: any) => {
-                            const maxVal = Math.max(1, ...analyticsData.timeline.map((t: any) => Math.max(t.incomeUsd, t.expenseUsd)));
-                            const incPct = Math.min(100, Math.round((item.incomeUsd / maxVal) * 100));
-                            const expPct = Math.min(100, Math.round((item.expenseUsd / maxVal) * 100));
+                      {/* Donut Chart Content */}
+                      {(() => {
+                        let slices: Array<{
+                          label: string;
+                          value: number;
+                          count?: number;
+                          color: string;
+                          percentage: number;
+                          formattedValue: string;
+                          percentageLabel: string;
+                        }> = [];
+                        let centerMainText = '$0';
+                        let centerSubText = 'TOTAL';
 
-                            return (
-                              <div key={item.month} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700 }}>
-                                  <span style={{ color: '#1F1916' }}>{item.month}</span>
-                                  <span style={{ color: item.netUsd >= 0 ? '#10B981' : '#EF4444' }}>
-                                    Net: {item.netUsd >= 0 ? '+' : ''}${Math.round(item.netUsd).toLocaleString()}
-                                  </span>
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                  {/* Inflow bar */}
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ fontSize: '11px', width: '50px', color: '#10B981', fontWeight: 600 }}>Inflow</span>
-                                    <div style={{ flex: 1, height: '10px', background: '#E5E7EB', borderRadius: '5px', overflow: 'hidden' }}>
-                                      <div style={{ width: `${incPct}%`, height: '100%', background: '#10B981', borderRadius: '5px' }} />
+                        if (activePieTab === 'CATEGORY') {
+                          const catEntries = Object.entries(analyticsData?.distributions?.expenseByCategory || {});
+                          const total = catEntries.reduce((sum, [_, val]: any) => sum + (val.usd || 0), 0);
+                          centerMainText = `$${Math.round(total).toLocaleString()}`;
+                          centerSubText = 'OUTFLOW';
+                          slices = catEntries
+                            .map(([cat, val]: any, idx) => ({
+                              label: cat,
+                              value: val.usd || 0,
+                              count: val.count || 0,
+                              color: CATEGORY_COLORS[idx % CATEGORY_COLORS.length],
+                              percentage: total > 0 ? (val.usd || 0) / total : 0,
+                              formattedValue: `$${Math.round(val.usd || 0).toLocaleString()}`,
+                              percentageLabel: `${total > 0 ? Math.round(((val.usd || 0) / total) * 100) : 0}%`,
+                            }))
+                            .sort((a, b) => b.value - a.value);
+                        } else if (activePieTab === 'DEPARTMENT') {
+                          const deptEntries = Object.entries(analyticsData?.distributions?.expenseByDepartment || {});
+                          const total = deptEntries.reduce((sum, [_, val]: any) => sum + (val.usd || 0), 0);
+                          centerMainText = `$${Math.round(total).toLocaleString()}`;
+                          centerSubText = 'BY DEPT';
+                          slices = deptEntries
+                            .map(([dept, val]: any, idx) => ({
+                              label: dept,
+                              value: val.usd || 0,
+                              count: val.count || 0,
+                              color: CATEGORY_COLORS[(idx + 2) % CATEGORY_COLORS.length],
+                              percentage: total > 0 ? (val.usd || 0) / total : 0,
+                              formattedValue: `$${Math.round(val.usd || 0).toLocaleString()}`,
+                              percentageLabel: `${total > 0 ? Math.round(((val.usd || 0) / total) * 100) : 0}%`,
+                            }))
+                            .sort((a, b) => b.value - a.value);
+                        } else {
+                          // CASHFLOW_SPLIT
+                          const inc = analyticsData?.metrics?.totalIncomeUsd || 0;
+                          const exp = analyticsData?.metrics?.totalExpenseUsd || 0;
+                          const totalFlow = inc + exp;
+                          const net = inc - exp;
+                          centerMainText = `${net >= 0 ? '+' : '-'}$${Math.abs(Math.round(net)).toLocaleString()}`;
+                          centerSubText = 'NET FLOW';
+                          slices = [
+                            {
+                              label: 'Revenue Inflow',
+                              value: inc,
+                              count: analyticsData?.metrics?.totalIncomes || 0,
+                              color: '#10B981',
+                              percentage: totalFlow > 0 ? inc / totalFlow : 0,
+                              formattedValue: `$${Math.round(inc).toLocaleString()}`,
+                              percentageLabel: `${totalFlow > 0 ? Math.round((inc / totalFlow) * 100) : 0}%`,
+                            },
+                            {
+                              label: 'Expense Outflow',
+                              value: exp,
+                              count: analyticsData?.metrics?.totalReceipts || 0,
+                              color: '#EF4444',
+                              percentage: totalFlow > 0 ? exp / totalFlow : 0,
+                              formattedValue: `$${Math.round(exp).toLocaleString()}`,
+                              percentageLabel: `${totalFlow > 0 ? Math.round((exp / totalFlow) * 100) : 0}%`,
+                            },
+                          ];
+                        }
+
+                        const circumference = 376.99; // 2 * Math.PI * 60
+                        let accumulatedOffset = 0;
+
+                        if (slices.length === 0 || slices.every((s) => s.value === 0)) {
+                          return (
+                            <div style={{ textAlign: 'center', padding: '32px 16px', color: '#8C8075', fontSize: '13px' }}>
+                              No transactions recorded for this period to display in the chart.
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className={styles.pieCardContent}>
+                            {/* SVG Donut */}
+                            <div className={styles.pieChartWrapper}>
+                              <svg className={styles.pieSvg} viewBox="0 0 160 160">
+                                {/* Base track ring */}
+                                <circle cx="80" cy="80" r="60" fill="none" stroke="#F3ECE2" strokeWidth="20" />
+                                {slices.map((slice) => {
+                                  if (slice.percentage <= 0) return null;
+                                  const sliceLength = slice.percentage * circumference;
+                                  const dashArray = `${sliceLength.toFixed(2)} ${(circumference - sliceLength).toFixed(2)}`;
+                                  const dashOffset = (-accumulatedOffset * circumference).toFixed(2);
+                                  accumulatedOffset += slice.percentage;
+
+                                  return (
+                                    <circle
+                                      key={slice.label}
+                                      cx="80"
+                                      cy="80"
+                                      r="60"
+                                      fill="none"
+                                      stroke={slice.color}
+                                      strokeWidth="20"
+                                      strokeDasharray={dashArray}
+                                      strokeDashoffset={dashOffset}
+                                      transform="rotate(-90 80 80)"
+                                      style={{ transition: 'stroke-dasharray 0.5s ease, stroke-dashoffset 0.5s ease' }}
+                                    >
+                                      <title>{`${slice.label}: ${slice.formattedValue} (${slice.percentageLabel})`}</title>
+                                    </circle>
+                                  );
+                                })}
+                                {/* Hole center text */}
+                                <text
+                                  x="80"
+                                  y="76"
+                                  textAnchor="middle"
+                                  fontSize="16"
+                                  fontWeight="800"
+                                  fill={
+                                    activePieTab === 'CASHFLOW_SPLIT' && (analyticsData?.metrics?.netCashflowUsd || 0) < 0
+                                      ? '#EF4444'
+                                      : '#1F1916'
+                                  }
+                                >
+                                  {centerMainText}
+                                </text>
+                                <text
+                                  x="80"
+                                  y="93"
+                                  textAnchor="middle"
+                                  fontSize="9"
+                                  fontWeight="700"
+                                  fill="#8C8075"
+                                  letterSpacing="0.06em"
+                                >
+                                  {centerSubText}
+                                </text>
+                              </svg>
+                            </div>
+
+                            {/* Legend & Progress Bars */}
+                            <div className={styles.pieLegendList}>
+                              {slices.map((slice) => (
+                                <div key={slice.label} className={styles.pieLegendItem}>
+                                  <div className={styles.pieLegendHeader}>
+                                    <div className={styles.pieLegendName}>
+                                      <span className={styles.pieColorDot} style={{ background: slice.color }} />
+                                      <span>{slice.label}</span>
+                                      {slice.count !== undefined && (
+                                        <span className={styles.pieLegendCount}>
+                                          {slice.count} {slice.count === 1 ? 'record' : 'records'}
+                                        </span>
+                                      )}
                                     </div>
-                                    <span style={{ fontSize: '11px', width: '65px', textAlign: 'right', fontWeight: 600, color: '#1F1916' }}>
-                                      ${Math.round(item.incomeUsd).toLocaleString()}
-                                    </span>
-                                  </div>
-                                  {/* Outflow bar */}
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ fontSize: '11px', width: '50px', color: '#EF4444', fontWeight: 600 }}>Outflow</span>
-                                    <div style={{ flex: 1, height: '10px', background: '#E5E7EB', borderRadius: '5px', overflow: 'hidden' }}>
-                                      <div style={{ width: `${expPct}%`, height: '100%', background: '#EF4444', borderRadius: '5px' }} />
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <span style={{ fontWeight: 800, color: '#1F1916' }}>{slice.formattedValue}</span>
+                                      <span style={{ fontSize: '11px', color: '#8C8075', width: '36px', textAlign: 'right' }}>
+                                        {slice.percentageLabel}
+                                      </span>
                                     </div>
-                                    <span style={{ fontSize: '11px', width: '65px', textAlign: 'right', fontWeight: 600, color: '#1F1916' }}>
-                                      ${Math.round(item.expenseUsd).toLocaleString()}
-                                    </span>
+                                  </div>
+                                  <div className={styles.pieProgressBar}>
+                                    <div
+                                      className={styles.pieProgressFill}
+                                      style={{ width: `${Math.round(slice.percentage * 100)}%`, background: slice.color }}
+                                    />
                                   </div>
                                 </div>
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <div style={{ textAlign: 'center', padding: '24px', color: '#8C8075', fontSize: '13px' }}>
-                            No monthly transaction records yet. As you scan receipts and log income, timeline bars will automatically render here.
+                              ))}
+                            </div>
                           </div>
-                        )}
-                      </div>
+                        );
+                      })()}
                     </div>
-
-
                   </div>
 
                   {/* Right Column: AI Anomalies & Telegram Bot Status */}
@@ -6200,19 +6751,6 @@ export default function KomnottraApp() {
                         </>
                       )}
                     </button>
-                    {editingReceipt.status === 'PENDING' && currentUser?.role === 'OWNER' && (
-                      <button
-                        type="button"
-                        className={styles.btnModalSuccess}
-                        onClick={async (e) => {
-                          await handleSaveEditReceipt(e);
-                          await handleQueueDecision(editingReceipt.id, 'approve');
-                        }}
-                        disabled={isSavingEdit || isDeletingReceipt}
-                      >
-                        <CheckCheck size={15} /> Save &amp; Approve
-                      </button>
-                    )}
                   </div>
                 </div>
               </form>
@@ -6389,16 +6927,6 @@ export default function KomnottraApp() {
                       {isSavingEditIncome ? <Loader2 size={15} className={styles.spinner} /> : <Save size={15} />}
                       Save Changes
                     </button>
-                    {editingIncome.status === 'PENDING' && currentUser?.role === 'OWNER' && (
-                      <button
-                        type="button"
-                        className={styles.btnModalSuccess}
-                        onClick={(e) => handleSaveEditIncome(e, true)}
-                        disabled={isSavingEditIncome}
-                      >
-                        <CheckCheck size={15} /> Save &amp; Approve
-                      </button>
-                    )}
                   </div>
                 </div>
               </form>
@@ -6429,17 +6957,11 @@ export default function KomnottraApp() {
           <button
             type="button"
             className={`${styles.mobileNavItem} ${activeScreen === 'approvals' ? styles.mobileNavItemActive : ''}`}
-            onClick={() => {
-              if (currentUser?.role === 'OWNER') {
-                setActiveScreen('approvals');
-              } else {
-                alert('Approvals are reserved for Company Finance Leads. Your submitted receipts are currently pending review.');
-              }
-            }}
+            onClick={() => setActiveScreen('approvals')}
           >
             <div style={{ position: 'relative' }}>
               <CheckSquare size={20} />
-              {approvalQueue.length > 0 && currentUser?.role === 'OWNER' && (
+              {approvalQueue.length > 0 && (
                 <span className={styles.mobileBadgeDot}>{approvalQueue.length}</span>
               )}
             </div>

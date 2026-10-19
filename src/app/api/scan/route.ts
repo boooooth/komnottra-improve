@@ -2,11 +2,64 @@ import { NextRequest, NextResponse } from 'next/server';
 import { extractReceiptWithGemini } from '@/lib/gemini';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 import fs from 'fs';
 import path from 'path';
 
+// RISK-03 Remediated: Magic-byte header validation for authentic binary payloads
+function detectAndValidateMagicBytes(buffer: Buffer): { valid: boolean; mimeType: string; ext: string } {
+  if (!buffer || buffer.length < 4) {
+    return { valid: false, mimeType: '', ext: '' };
+  }
+
+  // JPEG: FF D8 FF
+  if (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) {
+    return { valid: true, mimeType: 'image/jpeg', ext: 'jpg' };
+  }
+
+  // PNG: 89 50 4E 47
+  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) {
+    return { valid: true, mimeType: 'image/png', ext: 'png' };
+  }
+
+  // WebP: RIFF .... WEBP
+  if (
+    buffer.length >= 12 &&
+    buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46 &&
+    buffer[8] === 0x57 && buffer[9] === 0x42 && buffer[10] === 0x45 && buffer[11] === 0x50
+  ) {
+    return { valid: true, mimeType: 'image/webp', ext: 'webp' };
+  }
+
+  // PDF: %PDF (25 50 44 46)
+  if (buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46) {
+    return { valid: true, mimeType: 'application/pdf', ext: 'pdf' };
+  }
+
+  return { valid: false, mimeType: '', ext: '' };
+}
+
 export async function POST(req: NextRequest) {
   try {
+    // RISK-04 Remediated: Sliding-window rate limiting (30 requests/minute per client IP)
+    const clientIp = getClientIp(req);
+    const rateCheck = checkRateLimit(`scan:${clientIp}`, {
+      windowMs: 60 * 1000,
+      maxRequests: 30,
+    });
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Rate limit exceeded for scan requests. Please wait a moment before scanning more receipts.',
+        },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(Math.ceil(rateCheck.resetMs / 1000)) },
+        }
+      );
+    }
+
     const contentType = req.headers.get('content-type') || '';
     let base64Image = '';
     let mimeType = 'image/jpeg';
@@ -28,12 +81,21 @@ export async function POST(req: NextRequest) {
 
       if (file && file.size > 0) {
         const buffer = Buffer.from(await file.arrayBuffer());
-        base64Image = buffer.toString('base64');
-        mimeType = file.type || 'image/jpeg';
 
-        // Save image to public/uploads/ with safe extension and unique name
-        const rawExt = file.name ? file.name.split('.').pop()?.toLowerCase() : 'jpg';
-        const ext = ['png', 'jpg', 'jpeg', 'webp', 'pdf'].includes(rawExt || '') ? rawExt : 'jpg';
+        // Validate authentic binary signatures (prevent disguised executables/scripts)
+        const magic = detectAndValidateMagicBytes(buffer);
+        if (!magic.valid) {
+          return NextResponse.json(
+            { success: false, error: 'Invalid file format. Only authentic PNG, JPEG, WebP, and PDF files are accepted.' },
+            { status: 400 }
+          );
+        }
+
+        mimeType = magic.mimeType;
+        const ext = magic.ext;
+        base64Image = buffer.toString('base64');
+
+        // Save image to public/uploads/ with verified safe extension and unique name
         const fileName = `receipt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${ext}`;
         const uploadDir = path.join(process.cwd(), 'public', 'uploads');
         if (!fs.existsSync(uploadDir)) {
@@ -52,7 +114,18 @@ export async function POST(req: NextRequest) {
       if (base64Image) {
         const cleanBase = base64Image.replace(/^data:image\/\w+;base64,/, '');
         const buffer = Buffer.from(cleanBase, 'base64');
-        const ext = mimeType.split('/')[1] || 'jpg';
+
+        // Validate authentic binary signatures
+        const magic = detectAndValidateMagicBytes(buffer);
+        if (!magic.valid) {
+          return NextResponse.json(
+            { success: false, error: 'Invalid file format. Uploaded base64 payload is not a valid PNG, JPEG, WebP, or PDF.' },
+            { status: 400 }
+          );
+        }
+
+        mimeType = magic.mimeType;
+        const ext = magic.ext;
         const fileName = `receipt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${ext}`;
         const uploadDir = path.join(process.cwd(), 'public', 'uploads');
         if (!fs.existsSync(uploadDir)) {

@@ -10,6 +10,16 @@ const processedUpdates = new Map<number, number>();
 
 export async function POST(req: NextRequest) {
   try {
+    // RISK-02 Remediated: Verify X-Telegram-Bot-Api-Secret-Token if TELEGRAM_WEBHOOK_SECRET is set
+    const configuredSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
+    if (configuredSecret) {
+      const incomingSecret = req.headers.get('x-telegram-bot-api-secret-token');
+      if (incomingSecret !== configuredSecret) {
+        console.warn('⚠️ [TELEGRAM WEBHOOK]: Rejected request with invalid or missing secret token.');
+        return NextResponse.json({ error: 'Unauthorized webhook call' }, { status: 401 });
+      }
+    }
+
     const update = await req.json();
 
     // Deduplicate webhook retries from Telegram

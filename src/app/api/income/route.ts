@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
 import { notifyWorkspaceAlert } from '@/lib/telegram';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 export async function GET(req: NextRequest) {
   try {
@@ -54,6 +55,19 @@ export async function POST(req: NextRequest) {
     const session = await getCurrentUser();
     if (!session || !session.workspaceId) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // RISK-04 Remediated: Rate limiting on income recording
+    const clientIp = getClientIp(req);
+    const rateCheck = checkRateLimit(`income:${session.userId || clientIp}`, {
+      windowMs: 60 * 1000,
+      maxRequests: 60,
+    });
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Rate limit exceeded. Please wait a moment before submitting more income records.' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil(rateCheck.resetMs / 1000)) } }
+      );
     }
 
     const body = await req.json();
@@ -170,6 +184,16 @@ export async function PATCH(req: NextRequest) {
 
     const body = await req.json();
     const { id, ids, status, ...updateFields } = body;
+
+    // Enforce that only workspace owners can approve or reject income
+    if (status && (status === 'APPROVED' || status === 'REJECTED')) {
+      if (session.role !== 'OWNER') {
+        return NextResponse.json(
+          { success: false, error: 'Permission denied: Only workspace owners can approve or reject income' },
+          { status: 403 }
+        );
+      }
+    }
 
     // Support batch approve / update for multiple incomes
     if (ids && Array.isArray(ids) && ids.length > 0) {
