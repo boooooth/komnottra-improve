@@ -64,7 +64,7 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
     ports:
-      - "127.0.0.1:${PORT:-3000}:3000"
+      - "${PORT:-3000}:3000"
     volumes:
       - ./data-stuff/uploads:/app/public/uploads
     networks:
