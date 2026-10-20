@@ -53,7 +53,7 @@ flowchart TD
     
     StoreUpdate --> CheckType{Update Type?}
     
-    CheckType -- Callback Query --> HandleCallback[Handle [Expense] or [Income] Button Click]
+    CheckType -- Callback Query --> HandleCallback["Handle [Expense] or [Income] Button Click"]
     HandleCallback --> CallbackAction{Selected Type?}
     CallbackAction -- Expense --> ConfirmExpense[Mark as Expense & Check Threshold Alert]
     CallbackAction -- Income --> ConvertIncome[Move to Income Table & Skip Alert]
@@ -67,7 +67,7 @@ flowchart TD
     %% Member Flow
     CheckRole -- Member --> MemberFilter{Content Type?}
     MemberFilter -- Photo --> ProcessReceipt[Run Gemini Vision OCR & Show Expense/Income Buttons]
-    MemberFilter -- Text / Commands --> StaffRestriction[Reply: 🔒 Staff Access Only. Submissions Only.]
+    MemberFilter -- Text / Commands --> StaffRestriction["Reply: 🔒 Staff Access Only. Submissions Only."]
     
     %% Owner Flow
     CheckRole -- Owner --> OwnerFilter{Content Type?}
