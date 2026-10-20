@@ -35,18 +35,18 @@ graph TB
     end
 
     %% Network Connections
-    Browser -->|HTTPS komnottra.runbuddies.win| CFEdge
-    TGClient -->|Photo / Query| TGServers
-    TGServers -->|Webhook POST /api/telegram/webhook| CFEdge
+    Browser -->|"HTTPS komnottra.runbuddies.win"| CFEdge
+    TGClient -->|"Photo / Query"| TGServers
+    TGServers -->|"Webhook POST /api/telegram/webhook"| CFEdge
 
-    CFEdge <==|Encrypted Outbound Tunnel| CFTunnel
-    CFTunnel -->|HTTP 127.0.0.1:3000| WebContainer
+    CFEdge <==|"Encrypted Outbound Tunnel"| CFTunnel
+    CFTunnel -->|"HTTP 127.0.0.1:3000"| WebContainer
 
-    WebContainer -->|Internal DNS db:5432| DBContainer
-    WebContainer -->|Internal DNS omniroute:20128| OmniContainer
-    StudioContainer -->|Internal DNS db:5432| DBContainer
-    WebContainer -.->|Direct HTTPS API| GeminiAPI
-    OmniContainer -.->|Fallback HTTPS API| GeminiAPI
+    WebContainer -->|"Internal DNS db:5432"| DBContainer
+    WebContainer -->|"Internal DNS omniroute:20128"| OmniContainer
+    StudioContainer -->|"Internal DNS db:5432"| DBContainer
+    WebContainer -.->|"Direct HTTPS API"| GeminiAPI
+    OmniContainer -.->|"Fallback HTTPS API"| GeminiAPI
 
     %% Volume Mounts
     DBContainer --- PGData
