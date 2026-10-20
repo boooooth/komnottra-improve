@@ -159,6 +159,3 @@ The **Komnottra** application enforces defense-in-depth across all system bounda
 2. **Data Model:** Cryptographically enforced multi-tenancy at the query layer.
 3. **RBAC:** Server-side privilege guards on all status mutation endpoints.
 4. **Document Intake:** Binary magic-byte validation and prompt injection neutralization.
-
-**Audit Status:** APPROVED FOR PRODUCTION  
-**Lead Auditor:** Antigravity AI Engineering & Security Team
