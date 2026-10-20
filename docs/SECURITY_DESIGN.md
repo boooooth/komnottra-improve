@@ -86,16 +86,16 @@ graph LR
         TunnelDaemon["komnottra-tunnel<br/>(cloudflared in host mode)"]
     end
 
-    Attacker -.->|BLOCKED: No open WAN ports| HostLinux
-    LegitUser -->|HTTPS komnottra.runbuddies.win| WAF
+    Attacker -.->|"BLOCKED: No open WAN ports"| HostLinux
+    LegitUser -->|"HTTPS komnottra.runbuddies.win"| WAF
     WAF --> TLS
-    TLS <==|Outbound-Only Encrypted Tunnel| TunnelDaemon
-    TunnelDaemon -->|Proxies to 127.0.0.1:3000| Port3000
+    TunnelDaemon <==>|"Outbound-Only Encrypted Tunnel"| TLS
+    TunnelDaemon -->|"Proxies to 127.0.0.1:3000"| Port3000
     Port3000 --> Web
 
-    Web <-->|Internal DNS db:5432| DB
-    Web <-->|Internal DNS omniroute:20128| Omni
-    Studio <-->|Internal DNS db:5432| DB
+    Web <-->|"Internal DNS db:5432"| DB
+    Web <-->|"Internal DNS omniroute:20128"| Omni
+    Studio <-->|"Internal DNS db:5432"| DB
 ```
 
 ### A. The `docker0` Bridge vs. User-Defined Bridge (`komnottra-net`)
